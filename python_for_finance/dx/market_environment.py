@@ -60,4 +60,4 @@ class market_environment(object):
         # overwrites existing values, if they exist
         self.constants.update(env.constants)
         self.lists.update(env.lists)
-        self.curves.update(env.curve)
+        self.curves.update(env.curves)

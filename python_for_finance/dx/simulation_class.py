@@ -31,7 +31,7 @@ class simulation_class(object):
         self.currency = mar_env.get_constant('currency')
         self.frequency = mar_env.get_constant('frequency')
         self.paths = mar_env.get_constant('paths')
-        self.dicount_curve = mar_env.get_curve('discount_curve')
+        self.discount_curve = mar_env.get_curve('discount_curve')
         try:
             # if time grid in mar_env take that object
             # (for portfolio valuation)
@@ -43,7 +43,7 @@ class simulation_class(object):
             self.special_dates = mar_env.get_list('special_dates')
         except:
             self.special_dates = []
-        self.instrment_value = None
+        self.instrument_values = None
         self.correlated = corr
 
         if corr is True:
@@ -81,9 +81,10 @@ class simulation_class(object):
         self .time_grid = np.array(time_grid)
     
     def get_instrument_values(self, fixed_seed=True):
-        if self.get_instrument_values is None:
+        if self.instrument_values is None:
             # only initiate simulation if there are no instrument values
             self.generate_paths(fixed_seed=fixed_seed, day_count=365.)
         elif fixed_seed is False:
+            # also initiate resimulate when fixed_seed is False
             self.generate_paths(fixed_seed=fixed_seed, day_count=365.)
-        return self.instrument_value
+        return self.instrument_values

@@ -1,4 +1,4 @@
-from get_year_deltas import *
+from dx.get_year_deltas import *
 
 class constant_short_rate(object):
     ''' Class for constant short rate discounting
