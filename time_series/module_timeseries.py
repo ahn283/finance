@@ -218,6 +218,15 @@ def datasplit_ts(raw, Y_colname, X_colname, criteria):
     print('X_test: ', X_test.shape, 'Y_test: ', Y_test.shape)
     return X_train, X_test, Y_train, Y_test
 
+### scaling of X_train and X_test by X_train_scaler
+def feature_engineering_scaling(scaler, X_train, X_test):
+    scaler = scaler
+    scaler_fit = scaler.fit(X_train)
+    X_train_scaling = pd.DataFrame(scaler_fit.transform(X_train), columns=X_train.columns, index=X_train.index)
+    X_test_scaling = pd.DataFrame(scaler_fit.transform(X_test), columns=X_test.columns, index=X_test.index)
+    return X_train_scaling, X_test_scaling
+
+
 ### extract non-multicollinearity variables by VIF
 
             
