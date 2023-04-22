@@ -2,7 +2,7 @@
 # !python -m pip install --user --upgrade pip
 # !pip install tqdm
 # !conda config --add channels conda-forge
-# !conda install --yes hmmlearn
+# !con
 # !pip install hmmlearn
 
 # Auto reload
