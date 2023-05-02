@@ -1,129 +1,62 @@
-# Install packages from jupyter Notebook
-# !python -m pip install --user --upgrade pip
-# !pip install tqdm
-# !conda config --add channels conda-forge
-# !con
-# !pip install hmmlearn
-
-# Auto reload
-# %reload_ext autoreload
-# %autoreload 2
-
-# System related and data input controls
-import os
-import glob
-from urllib.request import urlopen
-from io import BytesIO
-from zipfile import ZipFile
-# os.system('pip install pandas-datareader')
-# os.system('pip install missingno')
-# os.system('pip install xgboost')
-# os.system('pip install lightgbm')
-# os.system('pip install arch')
-
-# Ignore the warnings
+# ignore the warnings
 import warnings
-warnings.filterwarnings('always')
+# warnings.filterwarnings('always')
 warnings.filterwarnings('ignore')
 
-# datasets
-import pandas_datareader.data as web
-from statsmodels import datasets
-from sklearn import datasets
+# system related and data input controls
+import os
 
-# Data manipulation, visualization and useful functions
-import numpy as np # vectors and matrices
-import pandas as pd # tables and data manipulations
-pd.options.display.float_format = '{:,.2f}'.format # output format
-pd.options.display.max_rows = 10 # display row numbers
-pd.options.display.max_columns = 20 # display column numbers
-from patsy import dmatrix
-from itertools import product # iterative combinations
-from tqdm import tqdm # excution time
-import matplotlib.pyplot as plt # plots
-import matplotlib.dates as mdates
-import matplotlib.mlab as mlab
-from matplotlib.ticker import FuncFormatter
-from matplotlib.ticker import StrMethodFormatter
-from matplotlib.ticker import PercentFormatter
-import seaborn as sns # plots
-import missingno as msno # plots
-
-# Modeling algorithms
-# General(Statistics/Econometrics)
+# Data manipulation and visualization
+import pandas as pd
+pd.options.display.float_format = '{:,.2f}'.format
+pd.options.display.max_rows = 20
+pd.options.display.max_columns = 20
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn import preprocessing
-import statsmodels
+from tqdm import tqdm # progress bar
+
+# Modeling Algorithms
+# General 
 import statsmodels.api as sm
-import statsmodels.tsa.api as smt
-import statsmodels.formula.api as smf
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from scipy import stats
-from scipy.stats import norm
-
-# Regression
-from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
-from sklearn.kernel_ridge import KernelRidge
-from sklearn.neighbors import KNeighborsRegressor
-from sklearn.svm import SVR
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.ensemble import RandomForestRegressor, BaggingRegressor, GradientBoostingRegressor, AdaBoostRegressor
-from xgboost import XGBRegressor
-from lightgbm import LGBMRegressor
-
-# Classification
-from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import LinearSVC, SVC
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-
-# Time series
-from statsmodels.tsa.api import SimpleExpSmoothing, Holt, ExponentialSmoothing
-import arch
-## for Python 3.6: Anaconda3-5.2.0-Windows-x86_64.exe
-## from pyramid.arima import auto_arima
 
 # Model selection
-from sklearn.model_selection import train_test_split,cross_validate
-from sklearn.model_selection import KFold
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import train_test_split
 
 # Evaluation metrics
-# for regression
-from sklearn.metrics import mean_squared_log_error, mean_squared_error,  r2_score, mean_absolute_error
-# for classification
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn import metrics
+# from regression 
+from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
 
+# 시계열 변수추출
+## 날짜 인식 및 빈도 설정만
+def non_feature_engineering(df):
+    df_nfe = df.copy()
+    if 'datetime' in df_nfe.columns:
+        df_nfe['datetime'] = pd.to_datetime(df_nfe['datetime'])
+        df_nfe['DateTime'] = pd.to_datetime(df_nfe['datetime'])
+    if df_nfe.index.dtype == 'int64':
+        df_nfe.set_index('DateTime', inplace=True)
+    df_nfe = df_nfe.asfreq('H', method='ffill')
 
-### Feature engineering of default
-def non_feature_engineering(raw):
-    if 'datetime' in raw.columns:
-        raw['datetime'] = pd.to_datetime(raw['datetime'])
-        raw['DateTime'] = pd.to_datetime(raw['datetime'])
-    if raw.index.dtype == 'int64':
-        raw.set_index('DateTime', inplace=True)
-    # bring back
-    # if raw.index.dtype != 'int64':
-    #     raw.reset_index(drop=False, inplace=True)
-    raw = raw.asfreq('H', method='ffill')
-    raw_nfe = raw.copy()
-    return raw_nfe
-# raw_rd = non_feature_engineering(raw_all)
+    return df_nfe
 
+## 날짜 인식 및 빈도 설정을 포함한 모든 전처리
+def feature_engineering(df):
+    df_fe = df.copy()
+    if 'datetime' in df_fe.columns:
+        df_fe['datetime'] = pd.to_datetime(df_fe['datetime'])
+        df_fe['DateTime'] = pd.to_datetime(df_fe['datetime'])
+    
+    if df_fe.index.dtype == 'int64':
+        df_fe.set_index('DateTime', inplace=True)
+    
+    df_fe = df_fe.asfreq('H', method='ffill')
 
-### Feature engineering of all
-def feature_engineering(raw):
-    if 'datetime' in raw.columns:
-        raw['datetime'] = pd.to_datetime(raw['datetime'])
-        raw['DateTime'] = pd.to_datetime(raw['datetime'])
-
-    if raw.index.dtype == 'int64':
-        raw.set_index('DateTime', inplace=True)
-
-    raw = raw.asfreq('H', method='ffill')
-
-    result = sm.tsa.seasonal_decompose(raw['count'], model='additive')
+    result = sm.tsa.seasonal_decompose(df_fe['count'], model='additive')
     Y_trend = pd.DataFrame(result.trend)
     Y_trend.fillna(method='ffill', inplace=True)
     Y_trend.fillna(method='bfill', inplace=True)
@@ -132,180 +65,282 @@ def feature_engineering(raw):
     Y_seasonal.fillna(method='ffill', inplace=True)
     Y_seasonal.fillna(method='bfill', inplace=True)
     Y_seasonal.columns = ['count_seasonal']
-    pd.concat([raw, Y_trend, Y_seasonal], axis=1).isnull().sum()
-    if 'count_trend' not in raw.columns:
-        if 'count_seasonal' not in raw.columns:
-            raw = pd.concat([raw, Y_trend, Y_seasonal], axis=1)
-
-    Y_count_Day = raw[['count']].rolling(24).mean()
+    pd.concat([df_fe, Y_trend, Y_seasonal], axis=1).isnull().sum()
+    if 'count_trend' not in df_fe.columns:
+        if 'count_seasonal' not in df_fe.columns:
+            df_fe = pd.concat([df_fe, Y_trend, Y_seasonal], axis=1)
+    
+    Y_count_Day = df_fe[['count']].rolling(24).mean()
     Y_count_Day.fillna(method='ffill', inplace=True)
     Y_count_Day.fillna(method='bfill', inplace=True)
     Y_count_Day.columns = ['count_Day']
-    Y_count_Week = raw[['count']].rolling(24*7).mean()
+    Y_count_Week = df_fe[['count']].rolling(24*7).mean()
     Y_count_Week.fillna(method='ffill', inplace=True)
     Y_count_Week.fillna(method='bfill', inplace=True)
     Y_count_Week.columns = ['count_Week']
-    if 'count_Day' not in raw.columns:
-        raw = pd.concat([raw, Y_count_Day], axis=1)
-    if 'count_Week' not in raw.columns:
-        raw = pd.concat([raw, Y_count_Week], axis=1)
+    if 'count_Day' not in df_fe.columns:
+        df_fe = pd.concat([df_fe, Y_count_Day], axis=1)
+    if 'count_Week' not in df_fe.columns:
+        df_fe = pd.concat([df_fe, Y_count_Week], axis=1)
 
-    Y_diff = raw[['count']].diff()
+    
+    Y_diff = df_fe[['count']].diff()
     Y_diff.fillna(method='ffill', inplace=True)
     Y_diff.fillna(method='bfill', inplace=True)
     Y_diff.columns = ['count_diff']
-    if 'count_diff' not in raw.columns:
-        raw = pd.concat([raw, Y_diff], axis=1)
+    if 'count_diff' not in df_fe.columns:
+        df_fe = pd.concat([df_fe, Y_diff], axis=1)
+    
+    df_fe['Year'] = df_fe.datetime.dt.year
+    df_fe['Quarter'] = df_fe.datetime.dt.quarter
+    df_fe['Quarter_ver2'] = df_fe['Quarter'] + (df_fe.Year - df_fe.Year.min()) * 4
+    df_fe['Month'] = df_fe.datetime.dt.month
+    df_fe['Day'] = df_fe.datetime.dt.day
+    df_fe['Hour'] = df_fe.datetime.dt.hour
+    df_fe['DayofWeek'] = df_fe.datetime.dt.dayofweek
 
-    raw['temp_group'] = pd.cut(raw['temp'], 10)
-    raw['Year'] = raw.datetime.dt.year
-    raw['Quater'] = raw.datetime.dt.quarter
-    raw['Quater_ver2'] = raw['Quater'] + (raw.Year - raw.Year.min()) * 4
-    raw['Month'] = raw.datetime.dt.month
-    raw['Day'] = raw.datetime.dt.day
-    raw['Hour'] = raw.datetime.dt.hour
-    raw['DayofWeek'] = raw.datetime.dt.dayofweek
+    df_fe['count_lag1'] = df_fe['count'].shift(1)
+    df_fe['count_lag2'] = df_fe['count'].shift(2)
+    df_fe['count_lag1'].fillna(method='bfill', inplace=True)
+    df_fe['count_lag2'].fillna(method='bfill', inplace=True)
 
-    raw['count_lag1'] = raw['count'].shift(1)
-    raw['count_lag2'] = raw['count'].shift(2)
-    raw['count_lag1'].fillna(method='bfill', inplace=True)
-    raw['count_lag2'].fillna(method='bfill', inplace=True)
-
-    if 'Quater' in raw.columns:
-        if 'Quater_Dummy' not in ['_'.join(col.split('_')[:2]) for col in raw.columns]:
-            raw = pd.concat([raw, pd.get_dummies(raw['Quater'], 
-                                                 prefix='Quater_Dummy', drop_first=True)], axis=1)
-            del raw['Quater']
-    raw_fe = raw.copy()
-    return raw_fe
-# raw_fe = feature_engineering(raw_all)
+    if 'Quarter' in df_fe.columns:
+        if 'Quarter_Dummy' not in ['_'.join(col.split('_')[:2]) for col in df_fe.columns]:
+            df_fe = pd.concat([df_fe, pd.get_dummies(df_fe['Quarter'], prefix='Quarter_Dummt', drop_first=True)], axis=1)
+            del df_fe['Quarter']
+        
+    return df_fe
 
 
-### duplicate previous year values to next one
-def feature_engineering_year_duplicated(raw, target):
-    raw_fe = raw.copy()
+# 데이터 분리
+## cross sectional 데이터
+def datasplit(df, Y_colname, test_size=0.2, random_state=123):
+    X_colname = [x for x in df.columns if x not in Y_colname]
+
+    X_train, X_test, Y_train, Y_test = train_test_split(df[X_colname], df[Y_colname],
+                                                        test_size=test_size, random_state=random_state)
+    print(X_train.shape, Y_train.shape)
+    print(X_test.shape, Y_test.shape)
+
+    return X_train, X_test, Y_train, Y_test
+
+## time series 데이터
+def datasplit_ts(df, Y_colname, X_colname, criteria):
+    df_train = df.loc[df.index < criteria, :]
+    df_test = df.loc[df.index >= criteria, :]
+    X_train = df_train[X_colname]
+    X_test = df_test[X_colname]
+    Y_train = df_train[Y_colname]
+    Y_test = df_test[Y_colname]
+    print('Train_size: ', df_train.shape, 'Test_size: ', df_test.shape)
+    print('X_train: ', X_train.shape, 'Y_train: ', Y_train.shape)
+    print('X_test: ', X_test.shape, 'Y_test: ', Y_test.shape)
+
+    return X_train, X_test, Y_train, Y_test
+
+#################
+# 2011년 데이터 시계열 패턴으로 2012년 데이터로 가정
+def feature_engineering_year_duplicated(X_train, X_test, target):
+    X_train_R, X_test_R = X_train.copy(), X_test.copy()
     for col in target:
-        raw_fe.loc['2012-01-01':'2012-02-28', col] = raw.loc['2011-01-01':'2011-02-28', col].values
-        raw_fe.loc['2012-03-01':'2012-12-31', col] = raw.loc['2011-03-01':'2011-12-31', col].values
-        step = (raw.loc['2011-03-01 00:00:00', col] - raw.loc['2011-02-28 23:00:00', col])/25
-        step_value = np.arange(raw.loc['2011-02-28 23:00:00', col]+step, raw.loc['2011-03-01 00:00:00', col], step)
+        X_train_R.loc['2012-01-01':'2012-02-28', col] = X_train_R.loc['2011-01-01':'2011-02-28', col].values
+        X_train_R.loc['2012-03-01':'2012-06-30', col] = X_train_R.loc['2011-03-01':'2011-06-30', col].values
+        X_test_R.loc['2012-07-01':'2012-12-31', col] = X_train_R.loc['2011-07-01':'2011-12-31', col].values
+        
+        step = (X_train_R.loc['2011-03-01 00:00:00', col] - X_train_R.loc['2011-02-28 23:00:00', col])/25
+        step_value = np.arange(X_train_R.loc['2011-02-28 23:00:00', col]+step, 
+                               X_train_R.loc['2011-03-01 00:00:00', col], step)
         step_value = step_value[:24]
-        raw_fe.loc['2012-02-29', col] = step_value
-    return raw_fe
-# target = ['count_trend', 'count_seasonal', 'count_Day', 'count_Week', 'count_diff']
-# raw_fe = feature_engineering_year_duplicated(raw_fe, target)
+        X_train_R.loc['2012-02-29', col] = step_value
 
+    return X_train_R, X_test_R
 
-### modify lagged values of X_test
+# 종속변수에서 지연처리 후 NaN은 Train이 아닌 Test 값에서 채움
 def feature_engineering_lag_modified(Y_test, X_test, target):
-    X_test_lm = X_test.copy()
+    X_test_R = X_test.copy()
     for col in target:
-        X_test_lm[col] = Y_test.shift(1).values
-        X_test_lm[col].fillna(method='bfill', inplace=True)
-        X_test_lm[col] = Y_test.shift(2).values
-        X_test_lm[col].fillna(method='bfill', inplace=True)
-    return X_test_lm
-# target = ['count_lag1', 'count_lag2']
-# X_test_fe = feature_engineering_lag_modified(Y_test_fe, X_test_fe, target)
+        X_test_R[col] = Y_test.shift(1).values
+        X_test_R[col].fillna(method='bfill', inplace=True)
+        X_test_R[col] = Y_test.shift(2).values
+        X_test_R[col].fillna(method='bfill', inplace=True)
+    
+    return X_test_R
 
-
-### Data split of cross sectional
-def datasplit_cs(raw, Y_colname, X_colname, test_size, random_seed=123):
-    X_train, X_test, Y_train, Y_test = train_test_split(raw[X_colname], raw[Y_colname], test_size=test_size, random_state=random_seed)
-    print('X_train:', X_train.shape, 'Y_train:', Y_train.shape)
-    print('X_test:', X_test.shape, 'Y_test:', Y_test.shape)
-    return X_train, X_test, Y_train, Y_test
-# X_train, X_test, Y_train, Y_test = datasplit_cs(raw_fe, Y_colname, X_colname, 0.2)
-
-
-### Data split of time series
-def datasplit_ts(raw, Y_colname, X_colname, criteria):
-    raw_train = raw.loc[raw.index < criteria,:]
-    raw_test = raw.loc[raw.index >= criteria,:]
-    Y_train = raw_train[Y_colname]
-    X_train = raw_train[X_colname]
-    Y_test = raw_test[Y_colname]
-    X_test = raw_test[X_colname]
-    print('Train_size:', raw_train.shape, 'Test_size:', raw_test.shape)
-    print('X_train:', X_train.shape, 'Y_train:', Y_train.shape)
-    print('X_test:', X_test.shape, 'Y_test:', Y_test.shape)
-    return X_train, X_test, Y_train, Y_test
-# X_train, X_test, Y_train, Y_test = datasplit_ts(raw_fe, Y_colname, X_colname, '2012-07-01')
-
-
-### scaling of X_train and X_test by X_train_scaler
+# 스케일 조정
 def feature_engineering_scaling(scaler, X_train, X_test):
-    # preprocessing.MinMaxScaler()
-    # preprocessing.StandardScaler()
-    # preprocessing.RobustScaler()
-    # preprocessing.Normalizer()
+    # preprocessing.MinMaxScaler(), preprocessing.StandardScaler(), preprocessing.RobustScaler()
     scaler = scaler
     scaler_fit = scaler.fit(X_train)
-    X_train_scaling = pd.DataFrame(scaler_fit.transform(X_train), 
-                               index=X_train.index, columns=X_train.columns)
-    X_test_scaling = pd.DataFrame(scaler_fit.transform(X_test), 
-                               index=X_test.index, columns=X_test.columns)
+    X_train_scaling = pd.DataFrame(scaler_fit.transform(X_train),
+                                   index=X_train.index, columns=X_train.columns)
+    X_test_scaling = pd.DataFrame(scaler_fit.transform(X_test),
+                                  index=X_test.index, columns=X_test.columns)
     return X_train_scaling, X_test_scaling
-# X_train_feRS, X_test_feRS = feature_engineering_scaling(preprocessing.Normalizer(), X_train_feR, X_test_feR)
 
-
-### extract non-multicollinearity variables by VIF 
+# 모든 독립변수들의 VIF 수치 확인 및 오름차순 정렬 후 상위 num_variables개 독립변수만 추출
 def feature_engineering_XbyVIF(X_train, num_variables):
     vif = pd.DataFrame()
     vif['VIF_Factor'] = [variance_inflation_factor(X_train.values, i) 
                          for i in range(X_train.shape[1])]
     vif['Feature'] = X_train.columns
     X_colname_vif = vif.sort_values(by='VIF_Factor', ascending=True)['Feature'][:num_variables].values
+    
     return X_colname_vif
-# X_colname_vif = feature_engineering_XbyVIF(X_train_femm, 10)
-# X_colname_vif
 
 
-### Evaluation of 1 pair of set
-def evaluation(Y_real, Y_pred, graph_on=False):
-    loss_length = len(Y_real.values.flatten()) - len(Y_pred)
-    if loss_length != 0:
-        Y_real = Y_real[loss_length:]
-    if graph_on == True:
-        pd.concat([Y_real, pd.DataFrame(Y_pred, index=Y_real.index, columns=['prediction'])], axis=1).plot(kind='line', figsize=(20,6),
-                                                                                                           xlim=(Y_real.index.min(),Y_real.index.max()),
-                                                                                                           linewidth=3, fontsize=20)
-        plt.title('Time Series of Target', fontsize=20)
-        plt.xlabel('Index', fontsize=15)
-        plt.ylabel('Target Value', fontsize=15)
-    MAE = abs(Y_real.values.flatten() - Y_pred).mean()
-    MSE = ((Y_real.values.flatten() - Y_pred)**2).mean()
-    MAPE = (abs(Y_real.values.flatten() - Y_pred)/Y_real.values.flatten()*100).mean()
+# 데이터 분리
+## cross sectional 데이터
+def datasplit(df, Y_colname, test_size=0.2, random_state=123):
+    X_colname = [x for x in df.columns if x not in Y_colname]
+       
+    X_train, X_test, Y_train, Y_test = train_test_split(df[X_colname], df[Y_colname],
+                                                        test_size=test_size, random_state=random_state)
+    print(X_train.shape, Y_train.shape)
+    print(X_test.shape, Y_test.shape)
+    
+    return X_train, X_test, Y_train, Y_test
+
+
+## time series 데이터
+def datasplit_ts(df, Y_colname, X_colname, criteria):
+    df_train = df.loc[df.index < criteria,:]
+    df_test = df.loc[df.index >= criteria,:]
+    Y_train = df_train[Y_colname]
+    X_train = df_train[X_colname]
+    Y_test = df_test[Y_colname]
+    X_test = df_test[X_colname]
+    print('Train_size:', df_train.shape, 'Test_size:', df_test.shape)
+    print('X_train:', X_train.shape, 'Y_train:', Y_train.shape)
+    print('X_test:', X_test.shape, 'Y_test:', Y_test.shape)
+    
+    return X_train, X_test, Y_train, Y_test
+
+
+# 실제 Y와 예측치 시각화
+def plot_prediction(Y_true_pred):
+    plt.figure(figsize=(16, 8))
+    plt.plot(Y_true_pred, linewidth=5, label=Y_true_pred.columns)
+    plt.xticks(fontsize=25, rotation=0)
+    plt.yticks(fontsize=25)
+    plt.xlabel('Index', fontname='serif', fontsize=28)
+    plt.legend(fontsize=20)
+    plt.grid()
+    plt.show()
+    
+    
+# 검증 함수화
+def evaluation_reg(Y_real, Y_pred):
+    MAE = mean_absolute_error(Y_real, Y_pred)
+    MSE = mean_squared_error(Y_real, Y_pred)
+    MAPE = mean_absolute_percentage_error(Y_real, Y_pred)
     Score = pd.DataFrame([MAE, MSE, MAPE], index=['MAE', 'MSE', 'MAPE'], columns=['Score']).T
-    Residual = pd.DataFrame(Y_real.values.flatten() - Y_pred, index=Y_real.index, columns=['Error'])
-    return Score, Residual
-# Score_tr, Residual_tr = evaluation(Y_train, pred_tr_reg1, graph_on=True)
+    
+    return Score
 
-
-### Evaluation of train/test pairs
-def evaluation_trte(Y_real_tr, Y_pred_tr, Y_real_te, Y_pred_te, graph_on=False):
-    Score_tr, Residual_tr = evaluation(Y_real_tr, Y_pred_tr, graph_on=graph_on)
-    Score_te, Residual_te = evaluation(Y_real_te, Y_pred_te, graph_on=graph_on)
+# Train & Test 모두의 검증 함수화
+def evaluation_reg_trte(Y_real_tr, Y_pred_tr, Y_real_te, Y_pred_te):
+    Score_tr = evaluation_reg(Y_real_tr, Y_pred_tr)
+    Score_te = evaluation_reg(Y_real_te, Y_pred_te)
     Score_trte = pd.concat([Score_tr, Score_te], axis=0)
     Score_trte.index = ['Train', 'Test']
-    return Score_trte, Residual_tr, Residual_te
-# Score_reg1, Resid_tr_reg1, Resid_te_reg1 = evaluation_trte(Y_train, pred_tr_reg1, Y_test, pred_te_reg1, graph_on=True)
+
+    return Score_trte
 
 
-### Error analysis
+# 에러 분석
+def error_analysis_timeseries(X_Data, Y_Pred, Residual, graph_on=False):
+    # Setting
+    Resid = Residual.copy()
+    if Resid.shape[0] >= 100:
+        lag_max = 50
+    else:
+        lag_max = int(Resid.shape[0]/2)-1
+        
+    if graph_on == True:
+        ##### 시각화
+        # index를 별도 변수로 저장 
+        Resid = Residual.copy()
+        Resid['Index'] = Resid.reset_index().index
+    
+        # 잔차의 정규분포성 확인
+        sns.distplot(Resid.iloc[:,[0]], norm_hist='True', fit=stats.norm)
+        plt.show()
+
+        # 잔차의 등분산성 확인
+        # sns.lmplot(data=Resid, x='Index', y=Resid.columns[0],
+        #            fit_reg=True, line_kws={'color': 'red'}, size=5, aspect=2, ci=99, sharey=True)
+        sns.lmplot(data=Resid, x='Index', y=Resid.columns[0],
+                   fit_reg=True, line_kws={'color': 'red'}, aspect=2, ci=99, sharey=True)
+        plt.show()
+        
+        # 잔차의 자기상관성 확인
+        sm.graphics.tsa.plot_acf(Resid.iloc[:,[0]], lags=lag_max, use_vlines=True)
+        plt.ylabel('Correlation')
+        plt.show()
+        
+        # 잔차의 편자기상관성 확인
+        sm.graphics.tsa.plot_pacf(Resid.iloc[:,[0]], lags=lag_max, use_vlines=True)
+        plt.ylabel('Correlation')
+        plt.show()
+
+    ##### 통계량
+    # 정규분포
+    # Null Hypothesis: The residuals are normally distributed
+    Normality = pd.DataFrame([stats.shapiro(Residual)], 
+                             index=['Normality'], columns=['Test Statistics', 'p-value']).T
+
+    # 등분산성
+    # Null Hypothesis: Error terms are homoscedastic
+    Heteroscedasticity = pd.DataFrame([sm.stats.diagnostic.het_goldfeldquandt(Residual, X_Data.values, alternative='two-sided')],
+                                      index=['Heteroscedasticity'], 
+                                      columns=['Test Statistics', 'p-value', 'Alternative']).T
+    
+    # 자기상관
+    # Null Hypothesis: Autocorrelation is absent
+    Autocorrelation = pd.concat([pd.DataFrame(sm.stats.diagnostic.acorr_ljungbox(Residual, lags=[10,lag_max]).iloc[:,0]),
+                             pd.DataFrame(sm.stats.diagnostic.acorr_ljungbox(Residual, lags=[10,lag_max]).iloc[:,1])], axis=1).T
+    Autocorrelation.index = ['Test Statistics', 'p-value']
+    Autocorrelation.columns = ['Autocorr(lag10)', 'Autocorr(lag50)']
+    
+    # 정상성
+    # ADF
+    # Null Hypothesis: The Time-series is non-stationalry
+    Stationarity = pd.Series(sm.tsa.stattools.adfuller(Residual)[0:3], 
+                             index=['Test Statistics', 'p-value', 'Used Lag'])
+    for key, value in sm.tsa.stattools.adfuller(Resid.iloc[:,[0]])[4].items():
+        Stationarity['Critical Value(%s)'%key] = value
+    Stationarity_ADF = pd.DataFrame(Stationarity, columns=['Stationarity_ADF'])
+    # KPSS
+    # Null Hypothesis: The Time-series is stationalry
+    Stationarity = pd.Series(sm.tsa.stattools.kpss(Residual)[0:3], 
+                             index=['Test Statistics', 'p-value', 'Used Lag'])
+    for key, value in sm.tsa.stattools.kpss(Resid.Error)[3].items():
+        if key != '2.5%':
+            Stationarity['Critical Value(%s)'%key] = value
+    Stationarity_KPSS = pd.DataFrame(Stationarity, columns=['Stationarity_KPSS'])
+    
+    Error_Analysis = pd.concat([Normality, Heteroscedasticity, Autocorrelation,
+                                Stationarity_ADF, Stationarity_KPSS], join='outer', axis=1)
+    
+    return Error_Analysis
+
+
+
+
+
 def stationarity_adf_test(Y_Data, Target_name):
     if len(Target_name) == 0:
         Stationarity_adf = pd.Series(sm.tsa.stattools.adfuller(Y_Data)[0:4],
-                                     index=['Test Statistics', 'p-value', 'Used Lag', 'Used Observations'])
+                                     index=['Test Statistics','p-value', 'Used Lag', 'Used Observations'])
         for key, value in sm.tsa.stattools.adfuller(Y_Data)[4].items():
-            Stationarity_adf['Critical Value(%s)'%key] = value
+            Stationarity_adf['Critical Value (%s)'%key] = value
             Stationarity_adf['Maximum Information Criteria'] = sm.tsa.stattools.adfuller(Y_Data)[5]
             Stationarity_adf = pd.DataFrame(Stationarity_adf, columns=['Stationarity_adf'])
     else:
         Stationarity_adf = pd.Series(sm.tsa.stattools.adfuller(Y_Data[Target_name])[0:4],
-                                     index=['Test Statistics', 'p-value', 'Used Lag', 'Used Observations'])
+                                     index=['Test Statistics','p-value', 'Used Lag', 'Used Observations'])
         for key, value in sm.tsa.stattools.adfuller(Y_Data[Target_name])[4].items():
-            Stationarity_adf['Critical Value(%s)'%key] = value
+            Stationarity_adf['Critical Value (%s)'%key] = value
             Stationarity_adf['Maximum Information Criteria'] = sm.tsa.stattools.adfuller(Y_Data[Target_name])[5]
             Stationarity_adf = pd.DataFrame(Stationarity_adf, columns=['Stationarity_adf'])
     return Stationarity_adf
@@ -313,73 +348,41 @@ def stationarity_adf_test(Y_Data, Target_name):
 def stationarity_kpss_test(Y_Data, Target_name):
     if len(Target_name) == 0:
         Stationarity_kpss = pd.Series(sm.tsa.stattools.kpss(Y_Data)[0:3],
-                                      index=['Test Statistics', 'p-value', 'Used Lag'])
+                                      index=['Test Statistics','p-value', 'Used Lag'])
         for key, value in sm.tsa.stattools.kpss(Y_Data)[3].items():
-            Stationarity_kpss['Critical Value(%s)'%key] = value
-            Stationarity_kpss = pd.DataFrame(Stationarity_kpss, columns=['Stationarity_kpss'])
+            Stationarity_kpss['Critical Value (%s)'%key] = value
+        Stationarity_kpss = pd.DataFrame(Stationarity_kpss, columns=['Stationarity_kpss'])
     else:
         Stationarity_kpss = pd.Series(sm.tsa.stattools.kpss(Y_Data[Target_name])[0:3],
-                                      index=['Test Statistics', 'p-value', 'Used Lag'])
+                                      index=['Test Statistics','p-value', 'Used Lag'])
         for key, value in sm.tsa.stattools.kpss(Y_Data[Target_name])[3].items():
-            Stationarity_kpss['Critical Value(%s)'%key] = value
-            Stationarity_kpss = pd.DataFrame(Stationarity_kpss, columns=['Stationarity_kpss'])
+            Stationarity_kpss['Critical Value (%s)'%key] = value
+        Stationarity_kpss = pd.DataFrame(Stationarity_kpss, columns=['Stationarity_kpss'])
     return Stationarity_kpss
 
-def error_analysis(Y_Data, Target_name, X_Data, graph_on=False):
-    for x in Target_name:
-        Target_name = x
-    X_Data = X_Data.loc[Y_Data.index]
 
-    if graph_on == True:
-        ##### Error Analysis(Plot)
-        Y_Data['RowNum'] = Y_Data.reset_index().index
 
-        # Stationarity(Trend) Analysis
-        sns.set(palette="muted", color_codes=True, font_scale=2)
-        sns.lmplot(x='RowNum', y=Target_name, data=Y_Data, fit_reg='True', size=5.2, aspect=2, ci=99, sharey=True)
-        del Y_Data['RowNum']
+# 정상성 테스트
+def stationarity_ADF_KPSS(Residual):
+    Resid = Residual.copy()
 
-        # Normal Distribution Analysis
-        figure, axes = plt.subplots(figsize=(12,8))
-        sns.distplot(Y_Data[Target_name], norm_hist='True', fit=stats.norm, ax=axes)
+    # ADF 
+    ## Null Hypothesis: The Time-series is non-stationary
+    Stationarity = pd.Series(sm.tsa.stattools.adfuller(Resid.iloc[:,[0]])[0:3],
+                             index=['Test Statistics','p-value', 'Used Lag'])
+    for key, value in sm.tsa.stattools.adfuller(Resid.iloc[:,0])[4].items():
+        Stationarity['Critical Value (%s)'%key] = value
+    Stationarity_ADF = pd.DataFrame(Stationarity, columns=['Stationarity_ADF'])
 
-        # Lag Analysis
-        length = int(len(Y_Data[Target_name])/10)
-        figure, axes = plt.subplots(1, 4, figsize=(12,3))
-        pd.plotting.lag_plot(Y_Data[Target_name], lag=1, ax=axes[0])
-        pd.plotting.lag_plot(Y_Data[Target_name], lag=5, ax=axes[1])
-        pd.plotting.lag_plot(Y_Data[Target_name], lag=10, ax=axes[2])
-        pd.plotting.lag_plot(Y_Data[Target_name], lag=50, ax=axes[3])
+    # KPSS
+    ## Null Hypothesis: The process is stationary.
+    Stationarity = pd.Series(sm.tsa.stattools.kpss(Resid.iloc[:,[0]])[0:3],
+                             index=['Test Statistics','p-value', 'Used Lag'])
+    for key, value in sm.tsa.stattools.kpss(Resid.iloc[:,0])[3].items():
+        Stationarity['Critical Value (%s)'%key] = value
+    Stationarity_KPSS = pd.DataFrame(Stationarity, columns=['Stationarity_KPSS'])
 
-        # Autocorrelation Analysis
-        figure, axes = plt.subplots(2,1,figsize=(12,5))
-        sm.tsa.graphics.plot_acf(Y_Data[Target_name], lags=100, use_vlines=True, ax=axes[0])
-        sm.tsa.graphics.plot_pacf(Y_Data[Target_name], lags=100, use_vlines=True, ax=axes[1])
+    # 정리
+    Stationarity = pd.concat([Stationarity_ADF, Stationarity_KPSS], axis=1, join='outer')
 
-    ##### Error Analysis(Statistics)
-    # Checking Stationarity
-    # Null Hypothesis: The Time-series is non-stationalry
-    Stationarity_adf = stationarity_adf_test(Y_Data, Target_name)
-    Stationarity_kpss = stationarity_kpss_test(Y_Data, Target_name)
-
-    # Checking of Normality
-    # Null Hypothesis: The residuals are normally distributed
-    Normality = pd.DataFrame([stats.shapiro(Y_Data[Target_name])],
-                             index=['Normality'], columns=['Test Statistics', 'p-value']).T
-
-    # Checking for Autocorrelation
-    # Null Hypothesis: Autocorrelation is absent
-    Autocorrelation = pd.concat([pd.DataFrame(sm.stats.diagnostic.acorr_ljungbox(Y_Data[Target_name], lags=[1,5,10,50])[0], columns=['Test Statistics']),
-                                 pd.DataFrame(sm.stats.diagnostic.acorr_ljungbox(Y_Data[Target_name], lags=[1,5,10,50])[1], columns=['p-value'])], axis=1).T
-    Autocorrelation.columns = ['Autocorr(lag1)', 'Autocorr(lag5)', 'Autocorr(lag10)', 'Autocorr(lag50)']
-
-    # Checking Heteroscedasticity
-    # Null Hypothesis: Error terms are homoscedastic
-    Heteroscedasticity = pd.DataFrame([sm.stats.diagnostic.het_goldfeldquandt(Y_Data[Target_name], X_Data.values, alternative='two-sided')],
-                                      index=['Heteroscedasticity'], columns=['Test Statistics', 'p-value', 'Alternative']).T
-    Score = pd.concat([Stationarity_adf, Stationarity_kpss, Normality, Autocorrelation, Heteroscedasticity], join='outer', axis=1)
-    index_new = ['Test Statistics', 'p-value', 'Alternative', 'Used Lag', 'Used Observations',
-                 'Critical Value(1%)', 'Critical Value(5%)', 'Critical Value(10%)', 'Maximum Information Criteria']
-    Score.reindex(index_new)
-    return Score
-# error_analysis(Resid_tr_reg1[1:], ['Error'], X_train, graph_on=True)
+    return Stationarity
