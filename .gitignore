@@ -164,3 +164,10 @@ time_series/lightning_logs/version_8/events.out.tfevents.1683341865.Ahns-Mac-min
 time_series/lightning_logs/version_8/events.out.tfevents.1683341903.Ahns-Mac-mini.local.98223.1
 time_series/lightning_logs/version_8/events.out.tfevents.1683341903.Ahns-Mac-mini.local.98223.2
 time_series/lightning_logs/version_8/hparams.yaml
+deep_learning/Model/BostonHousing_CNN.h5
+deep_learning/Model/BostonHousing_MLP.h5
+deep_learning/Model/ColorObject_MNIST_CNN.h5
+deep_learning/Model/ColorObject_MNIST_ResNet50.h5
+deep_learning/Model/Fashion_MNIST_CNN.h5
+deep_learning/Model/Fashion_MNIST_ResNet50.h5
+deep_learning/Model/Number_MNIST_CNN.h5
