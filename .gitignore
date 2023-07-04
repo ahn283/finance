@@ -171,3 +171,13 @@ deep_learning/Model/ColorObject_MNIST_ResNet50.h5
 deep_learning/Model/Fashion_MNIST_CNN.h5
 deep_learning/Model/Fashion_MNIST_ResNet50.h5
 deep_learning/Model/Number_MNIST_CNN.h5
+pytorch/data/FashionMNIST/raw/t10k-images-idx3-ubyte
+pytorch/data/FashionMNIST/raw/t10k-images-idx3-ubyte.gz
+pytorch/data/FashionMNIST/raw/t10k-labels-idx1-ubyte
+pytorch/data/FashionMNIST/raw/t10k-labels-idx1-ubyte.gz
+pytorch/data/FashionMNIST/raw/train-images-idx3-ubyte
+pytorch/data/FashionMNIST/raw/train-images-idx3-ubyte.gz
+pytorch/data/FashionMNIST/raw/train-labels-idx1-ubyte
+pytorch/data/FashionMNIST/raw/train-labels-idx1-ubyte.gz
+pytorch/model_weights.pth
+pytorch/model.pth
