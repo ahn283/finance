@@ -181,3 +181,12 @@ pytorch/data/FashionMNIST/raw/train-labels-idx1-ubyte
 pytorch/data/FashionMNIST/raw/train-labels-idx1-ubyte.gz
 pytorch/model_weights.pth
 pytorch/model.pth
+pytorch/data/cifar-10-python.tar.gz
+pytorch/data/cifar-10-batches-py/batches.meta
+pytorch/data/cifar-10-batches-py/data_batch_1
+pytorch/data/cifar-10-batches-py/data_batch_2
+pytorch/data/cifar-10-batches-py/data_batch_3
+pytorch/data/cifar-10-batches-py/data_batch_4
+pytorch/data/cifar-10-batches-py/data_batch_5
+pytorch/data/cifar-10-batches-py/readme.html
+pytorch/data/cifar-10-batches-py/test_batch
