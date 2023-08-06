@@ -190,3 +190,4 @@ pytorch/data/cifar-10-batches-py/data_batch_4
 pytorch/data/cifar-10-batches-py/data_batch_5
 pytorch/data/cifar-10-batches-py/readme.html
 pytorch/data/cifar-10-batches-py/test_batch
+.DS_Store
