@@ -191,3 +191,7 @@ pytorch/data/cifar-10-batches-py/data_batch_5
 pytorch/data/cifar-10-batches-py/readme.html
 pytorch/data/cifar-10-batches-py/test_batch
 .DS_Store
+<<<<<<< HEAD
+=======
+python_for_finance_cookbook/datasets/creditcard.csv
+>>>>>>> 3946fb7 (update ml)
