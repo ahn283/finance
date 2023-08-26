@@ -195,3 +195,5 @@ pytorch/data/cifar-10-batches-py/test_batch
 =======
 python_for_finance_cookbook/datasets/creditcard.csv
 >>>>>>> 3946fb7 (update ml)
+.DS_Store
+python_for_finance_cookbook/.DS_Store
