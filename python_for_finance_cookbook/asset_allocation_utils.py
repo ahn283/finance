@@ -17,3 +17,4 @@ def print_portfolio_summary(perf, weights, assets, name):
     print("\nWeights")
     for x, y in zip(assets, weights):
         print(f"{x} : {100 * y:.2f}% ", end="", flush=True)
+    
