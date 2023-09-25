@@ -198,6 +198,6 @@ python_for_finance_cookbook/datasets/creditcard.csv
 .DS_Store
 python_for_finance_cookbook/.DS_Store
 
-# mlflow (mlrun(
 mlflow/mlartifacts/
 mlflow/mlruns
+pytorch/data
