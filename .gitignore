@@ -203,3 +203,4 @@ mlflow/mlruns
 pytorch/data
 pytorch/.data
 pytorch/.vector_cache
+pytorch/models/traced_vgg16_model.pt
