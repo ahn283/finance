@@ -39,18 +39,23 @@ class TradingBot:
         self.learn_env = learn_env
         self.valid_env = valid_env
         self.val = val
+        # exploration rate and its decay rate
         self.epsilon = 1.0
         self.epsilon_min = 0.1
         self.epsilon_decay = 0.99
         self.learning_rate = learning_rate
+        # discount
         self.gamma = 0.5
         self.batch_size = 128
         self.max_treward = 0
         self.averages = list()
         self.trewards = []
         self.performances = list()
+        # average performance of test
         self.aperformances = list()
+        # average perforamance of validation
         self.vperformances = list()
+        # deque queue with 2000 size 
         self.memory = deque(maxlen=2000)
         self.model = self._build_model(hidden_units,
                              learning_rate, dropout)

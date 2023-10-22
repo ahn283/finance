@@ -34,7 +34,9 @@ class Finance:
         self.symbol = symbol
         self.features = features
         self.n_features = len(features)
+        # window for rolling
         self.window = window
+        # number for lagged feature
         self.lags = lags
         self.leverage = leverage
         self.min_performance = min_performance
@@ -61,14 +63,19 @@ class Finance:
         self.data = self.data.iloc[self.start:]
         self.data['r'] = np.log(self.data / self.data.shift(1))
         self.data.dropna(inplace=True)
+        # simple movaing average
         self.data['s'] = self.data[self.symbol].rolling(self.window).mean()
+        # moment
         self.data['m'] = self.data['r'].rolling(self.window).mean()
+        # return volatility
         self.data['v'] = self.data['r'].rolling(self.window).std()
         self.data.dropna(inplace=True)
         if self.mu is None:
             self.mu = self.data.mean()
             self.std = self.data.std()
+        # Guassian normalization
         self.data_ = (self.data - self.mu) / self.std
+        # historical directions
         self.data['d'] = np.where(self.data['r'] > 0, 1, 0)
         self.data['d'] = self.data['d'].astype(int)
         if self.end is not None:
@@ -96,6 +103,7 @@ class Finance:
         return state.values
 
     def step(self, action):
+        # check if correct bewtween action and real direction of index with self.bar
         correct = action == self.data['d'].iloc[self.bar]
         ret = self.data['r'].iloc[self.bar] * self.leverage
         reward_1 = 1 if correct else 0
