@@ -145,9 +145,10 @@ class State1D(State):
             res[dst+1] = self._cur_close() / self.open_price - 1.0
         return res
     
-class StockEnv(gym.Env):
+class StocksEnv(gym.Env):
     metadata = {'render.modes': ['human']}
-    spec = EnvSpec("StockEnv-v0")
+    spec = EnvSpec("StocksEnv-v0")
+
     
     def __init__(self, prices, bars_count=DEFAULT_BARS_COUNT,
                  commission=DEFAULT_COMMISSION_PERC,
@@ -168,7 +169,7 @@ class StockEnv(gym.Env):
             )
         self.action_space = gym.spaces.Discrete(n=len(Actions))
         self.observation_space = gym.spaces.Box(
-            low=-np.ing, high=np.inf,
+            low=-np.inf, high=np.inf,
             shape=self._state.shape, dtype=np.float32
         )
         self.random_ofs_on_reset = random_ofs_on_reset
@@ -217,4 +218,4 @@ class StockEnv(gym.Env):
             file: data.load_relative(file)
             for file in data.price_files(data_dir)
         }
-        return StockEnv(prices, **kwargs)
+        return StocksEnv(prices, **kwargs)
