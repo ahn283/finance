@@ -10,6 +10,7 @@ def get_today_str():
     today = datetime.datetime.combine(
         datetime.date.today(), datetime.datetime.min.time()
     )
+    # RLTrader에서 날짜의 경우 %Y%m%d 형식을 사용 예: 20200202
     today_str = today.strftime('%Y%m%d')
     return today_str
 
