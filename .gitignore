@@ -212,3 +212,6 @@ reinforcement_learning/deep_reinforcement_learning_handson/ch6/runs
 quant_trading\quant_portfolio\data
 
 reinforcement_learning/deep_reinforcement_learning_handson/ch11/runs
+
+RLTrader/output
+RLTrader/data

@@ -13,9 +13,9 @@ COLUMNS_TRAINING_DATA_V1 = [
     'open_lastclose_ratio', 'high_close_ratio', 'low_close_ratio',
     'close_lastclose_ratio', 'volume_lastvolume_ratio',
     'close_ma5_ratio', 'volume_ma5_ratio',
-    'close_ma10_ratio', 'colume_ma10_ratio',
+    'close_ma10_ratio', 'volume_ma10_ratio',
     'close_ma20_ratio', 'volume_ma20_ratio',
-    'close_ma60_ratio', 'volume_ma60_Ratio',
+    'close_ma60_ratio', 'volume_ma60_ratio',
     'close_ma120_ratio', 'volume_ma120_ratio',
 ]
 
@@ -43,7 +43,7 @@ COLUMNS_TRAINING_DATA_V3 = COLUMNS_TRAINING_DATA_V2 + [
 ]
 
 COLUMNS_TRAINING_DATA_V3 = list(map(
-    lambda x: x if x != 'close_lastclose_ratio' else 'diffratio'
+    lambda x: x if x != 'close_lastclose_ratio' else 'diffratio', COLUMNS_TRAINING_DATA_V3
 ))
 
 COLUMNS_TRAINING_DATA_V4 = [
@@ -129,9 +129,9 @@ COLUMNS_TRAINING_DATA_V4 = [
 ]
 
 COLUMNS_TRAINING_DATA_V4_1 = []
-with open(os.path.join(settings.BASE_DIR, 'conf', 'data', 'v4.1', 'feature_list.txt')) as f:
+with open(os.path.join(settings.BASE_DIR, 'data', 'v4.1', 'feature_list.txt')) as f:
     for line in f:
-        COLUMNS_TRAINING_DATA_V4_1.append(list.strip())
+        COLUMNS_TRAINING_DATA_V4_1.append(line.strip())
 
 # data preprocessing
 def preprocess(data, ver='v1'):
@@ -175,9 +175,9 @@ def load_data(code, date_from, date_to, ver='v2'):
     - code, 시작날짜, 종료날짜, 학습 데이터 버전
     '''
     if ver in ['v1', 'v1.1', 'v2']:
-        return load_data_v1_v2(code, date_from, date_to)
+        return load_data_v1_v2(code, date_from, date_to, ver)
     elif ver in ['v3', 'v4']:
-        return load_data_v3_v4(code, date_from, date_to)
+        return load_data_v3_v4(code, date_from, date_to, ver)
     elif ver in ['v4.1', 'v4.2']:
         # 종목코드와 학습 데이터 버전으로 csv 파일 경로를 만들고 read_csv로 읽어옴
         stock_filename = ''

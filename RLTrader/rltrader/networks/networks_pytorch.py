@@ -112,7 +112,7 @@ class Network:
             y = torch.from_numpy(y).float().to(device)
             y_pred = self.model(x)
             _loss = self.criterion(y_pred, y)
-            self.optimizer.zeo_grad()
+            self.optimizer.zero_grad()
             _loss.backward()
             self.optimizer.step()
             loss += _loss.item()
@@ -137,8 +137,9 @@ class Network:
         if isinstance(m, torch.nn.Linear) or isinstance(m, torch.nn.Conv1d):
             torch.nn.init.normal_(m.weight, std=0.01)
         elif isinstance(m, torch.nn.LSTM):
-            for weight in m.all_weights:
-                torch.nn.init.normal_(weight, std=0.01)
+            for weights in m.all_weights:
+                for weight in weights:
+                    torch.nn.init.normal_(weight, std=0.01)
     
     def save_model(self, model_path):
         if model_path is not None and self.model is not None:
@@ -207,9 +208,9 @@ class LSTMNetwork(Network):
         return super().predict(sample)
 
 class LSTMModule(torch.nn.LSTM):
-    def __init__(self, *args, use_las_only=False, **kwargs):
+    def __init__(self, *args, use_last_only=False, **kwargs):
         super().__init__(*args, **kwargs)
-        self.use_last_only = use_las_only
+        self.use_last_only = use_last_only
     
     def forward(self, x):
         output, (h_n, _) = super().forward(x)

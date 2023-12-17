@@ -8,12 +8,20 @@ import json
 import numpy as np
 from tqdm import tqdm
 
-from rltrader.environment import Environment
-from rltrader.agent import Agent
-from rltrader.networks import Network, DNN, LSTMNetwork, CNN
-from rltrader.visualizer import Visualizer
-from rltrader import utils
-from rltrader import settings
+from .environment import Environment
+from .agent import Agent
+from .networks import Network, DNN, LSTMNetwork, CNN
+from .visualizer import Visualizer
+from . import utils
+from . import settings
+
+# from rltrader.environment import Environment
+# from rltrader.agent import Agent
+# from rltrader.networks import Network, DNN, LSTMNetwork, CNN
+# from rltrader.visualizer import Visualizer
+# from rltrader import utils
+# from rltrader import settings
+
 
 logger = logging.getLogger(settings.LOGGER_NAME)
 
@@ -47,7 +55,7 @@ class ReinforcementLearner:
     lock = threading.Lock()
     
     def __init__(self, rl_method='rl', stock_code=None,
-                 chart_data=None, trading_data=None,
+                 chart_data=None, training_data=None,
                  min_trading_price=100000, max_trading_price=10000000,
                  net='dnn', num_steps=1, lr=0.0005,
                  discount_factor=0.9, num_epochs=1000,
@@ -98,7 +106,7 @@ class ReinforcementLearner:
         self.agent = Agent(self.environment, balance, min_trading_price, max_trading_price)
         
         # 학습 데이터
-        self.training_data = trading_data
+        self.training_data = training_data
         self.sample = None
         self.training_data_idx = -1
         
@@ -263,9 +271,12 @@ class ReinforcementLearner:
     # LSTM, CNN 신경망을 사용하는 경우 에이전트 행동, 보유 주식수, 가치 신경망 출력, 정책 신경망 출력. 포트폴리오 가치는 환경의 일봉 수보다 (num_steps - 1)만큼 부족하므로 (num_steps - 1)만큼 의미 없는 값을 첫 부분에 채워준다.  
     def visualize(self, epoch_str, num_epochs, epsilon):
         self.memory_action = [Agent.ACTION_HOLD] * (self.num_steps - 1) + self.memory_action
-        self.memory_num_stocks [0] * (self.num_steps - 1) + self.memory_num_stocks
+        self.memory_num_stocks = [0] * (self.num_steps - 1) + self.memory_num_stocks
         if self.value_network is not None:
-            self.memory_value = [np.array([np.nan] * len(Agent.ACTIONS))] + (self.num_steps - 1) + self.memory_value
+            self.memory_value = [np.array([np.nan] * len(Agent.ACTIONS))] * (self.num_steps - 1) + self.memory_value
+        if self.policy_network is not None:
+            self.memory_policy = [np.array([np.nan] * len(Agent.ACTIONS))] * (self.num_steps - 1) + self.memory_policy
+        
         self.memory_pv = [self.agent.initial_balance] * (self.num_steps - 1) + self.memory_pv
         self.visualizer.plot(
             epoch_str=epoch_str, num_epochs=num_epochs,
@@ -398,7 +409,7 @@ class ReinforcementLearner:
             eplapsed_time_epoch = time_end_epoch - time_start_epoch
             logger.debug(f'[{self.stock_code}][Epoch {epoch_str}/{self.num_epochs}]'
                          f'Epsilon:{epsilon:.4f} #Sell:{self.agent.num_sell} #Hold:{self.agent.num_hold}'
-                         f'#Stocks:{self.agent.num_stocks} PV:{self.agent.portfolio_value:,.0f}'
+                         f'#Stocks:{self.agent.num_stocks} PV:{self.agent.portfolio_value:,.0f} '
                          f'Loss:{self.loss:.6f} ET:{eplapsed_time_epoch:.4f}'
                          )
             
@@ -544,7 +555,7 @@ class ActorCriticLearner(ReinforcementLearner):
         super().__init__(*args, **kwargs)
         # 가치 신경망과 정책 신경망 상단부 레이어를 공유
         if shared_network is None:
-            self.shared_network = Network.get_share_network(
+            self.shared_network = Network.get_shared_network(
                 net=self.net, num_steps=self.num_steps,
                 input_dim=self.num_features,
                 output_dim=self.agent.NUM_ACTIONS
@@ -630,7 +641,7 @@ class A3CLearner(ReinforcementLearner):
         '''
         
         # 공유 신경망 생성
-        self.shared_network = Network.get_share_network(
+        self.shared_network = Network.get_shared_network(
             net=self.net, num_steps=self.num_steps,
             input_dim=self.num_features,
             output_dim=self.agent.NUM_ACTIONS

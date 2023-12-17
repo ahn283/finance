@@ -1,5 +1,5 @@
 import numpy as np
-from RLTrader.rltrader import utils
+from . import utils
 
 class Agent:
     ''' 

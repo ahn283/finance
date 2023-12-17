@@ -4,9 +4,13 @@ import logging
 import argparse
 import json
 
-from RLTrader.rltrader import settings
-from RLTrader.rltrader import utils
-from RLTrader.rltrader import data_manager
+
+from rltrader import settings
+from rltrader import utils
+from rltrader import data_manager
+# from RLTrader.rltrader import settings
+# from RLTrader.rltrader import utils
+# from RLTrader.rltrader import data_manager
 
 # 프로그램 인자 숼정
 
@@ -37,7 +41,7 @@ if __name__ == '__main__':
     # discount factor
     parser.add_argument('--discount_factor', type=float, default=0.99)
     # 초기 자본금
-    parser.add_argument('--balannce', type=int, default=100000000)
+    parser.add_argument('--balance', type=int, default=100000000)
     args = parser.parse_args()
 
     # 학습기 파라미터 설정
@@ -46,7 +50,7 @@ if __name__ == '__main__':
     # 강화학습 유무를 지정하는 플래그
     learning = args.mode in ['train', 'update']
     # 모델 재사용 여부 플래그
-    resue_models = args.mode in ['test', 'update', 'predict']
+    reuse_models = args.mode in ['test', 'update', 'predict']
     value_network_name = f'{args.name}_{args.rl_method}_{args.net}_value.mdl'
     policy_network_name = f'{args.name}_{args.rl_method}_{args.net}_policy.mdl'
     start_epsilon = 1 if args.mode in ['train', 'update'] else 0
@@ -96,7 +100,7 @@ if __name__ == '__main__':
     logger.info(params)
     
     # backend 설정, 로그 설정을 먼저하고 RLTrader 모듈들을 임포트해야 함
-    from RLTrader.rltrader.learners import ReinforcementLearner, DQNLearner, PolicyGradientLearner, ActorCriticLearner, A2CLearner, A3CLearner, PPOLearner
+    from rltrader.learners import ReinforcementLearner, DQNLearner, PolicyGradientLearner, ActorCriticLearner, A2CLearner, A3CLearner, PPOLearner
     
     common_params = {}
     list_stock_code = []
@@ -122,8 +126,8 @@ if __name__ == '__main__':
             'rl_method': args.rl_method,
             'net': args.net, 'num_steps': num_steps, 'lr': args.lr,
             'balance': args.balance, 'num_epochs': num_epochs,
-            'discount_factor': args.discount_factor, 'start_epsilon': args.start_epsilon,
-            'output_path': output_path, 'resue_models': resue_models
+            'discount_factor': args.discount_factor, 'start_epsilon': start_epsilon,
+            'output_path': output_path, 'reuse_models': reuse_models
         }
         
         # 강화학습 시작

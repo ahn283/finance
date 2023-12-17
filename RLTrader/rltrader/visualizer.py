@@ -50,8 +50,8 @@ class Visualizer:
     def prepare(self, chart_data, title):
         self.title = title
         # 모든 차트가 공유할 x축 데이터
-        self.x = np.arange(len(chart_data['date']))
-        self.x_label = [datetime.strptime(date, '%Y%m%d').date() for date in chart_data['date']]
+        # self.x = np.arange(len(chart_data['date']))
+        # self.x_label = [datetime.strptime(date, '%Y%m%d').date() for date in chart_data['date']]
         with lock:
             # 캔버스를 초기화하고 5개 차트를 그릴 준비
             self.fig, self.axes = plt.subplots(
@@ -80,7 +80,7 @@ class Visualizer:
             # x축 설정
             self.x = np.arange(len(chart_data['date']))
             self.xticks = chart_data.index[[0, -1]]
-            self.xlabels = chart_data.oloc[[0, -1]]['date']
+            self.xlabels = chart_data.iloc[[0, -1]]['date']
             
     def plot(self, epoch_str=None, num_epochs=None, epsilon=None,
              action_list=None, actions=None, num_stocks=None,
@@ -137,7 +137,7 @@ class Visualizer:
             # 차트 4. 정책 신경망 
             # 탐험을 노란색 배경으로 그리기
             for exp_idx in exps:
-                self.exes[3].axvline(exp_idx, color='y')
+                self.axes[3].axvline(exp_idx, color='y')
             # 행동을 배경으로 그리기
             _outvals = outvals_policy if len(outvals_policy) > 0 else outvals_value
             for idx, outval in zip(self.x, _outvals):
@@ -200,7 +200,7 @@ class Visualizer:
             
             # y축 레이블 재설정
             self.axes[1].set_ylabel('Agent')
-            self.axes[2].set_yalbel('V')
+            self.axes[2].set_ylabel('V')
             self.axes[3].set_ylabel('P')
             self.axes[4].set_ylabel('PV')
             for ax in _axes:
@@ -208,7 +208,7 @@ class Visualizer:
                 ax.get_xaxis().get_major_formatter().set_scientific(False)  # x축의 과학적 표기 비활성화
                 ax.get_yaxis().get_major_formatter().set_scientific(False)  # y축의 과학적 표기 비활성화
                 # x축 간격을 일정하게 설정
-                ax.xticklabel_format(useOffset=False)
+                ax.ticklabel_format(useOffset=False)
                 
     # 결과 저장
     def save(self, path):
