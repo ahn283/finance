@@ -37,9 +37,9 @@ if __name__ == '__main__':
     # 차트 데이터 및 학습 데이터 끝 날짜
     parser.add_argument('--end_date', default='20201231')
     # learning rate
-    parser.add_argument('--lr', type=float, default=0.001)
+    parser.add_argument('--lr', type=float, default=0.0001)
     # discount factor
-    parser.add_argument('--discount_factor', type=float, default=0.99)
+    parser.add_argument('--discount_factor', type=float, default=0.7)
     # 초기 자본금
     parser.add_argument('--balance', type=int, default=100000000)
     args = parser.parse_args()

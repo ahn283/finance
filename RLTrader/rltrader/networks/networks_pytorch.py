@@ -108,10 +108,10 @@ class Network:
         with self.lock:
             # 학습 모드 전환
             self.model.train()
-            x = torch.from_numpy(x).float().to(device)
-            y = torch.from_numpy(y).float().to(device)
-            y_pred = self.model(x)
-            _loss = self.criterion(y_pred, y)
+            _x = torch.from_numpy(x).float().to(device)
+            _y = torch.from_numpy(y).float().to(device)
+            y_pred = self.model(_x)
+            _loss = self.criterion(y_pred, _y)
             self.optimizer.zero_grad()
             _loss.backward()
             self.optimizer.step()
@@ -121,7 +121,7 @@ class Network:
     @classmethod
     def get_shared_network(cls, net='dnn', num_steps=1, input_dim=0, output_dim=0):
         if net == 'dnn':
-            return DNN.get_network_head((input_dim), output_dim)
+            return DNN.get_network_head((input_dim,), output_dim)
         elif net == 'lstm':
             return LSTMNetwork.get_network_head((num_steps, input_dim), output_dim)
         elif net == 'cnn':

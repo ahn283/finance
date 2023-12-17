@@ -408,7 +408,8 @@ class ReinforcementLearner:
             # epoch 수행 시간 기록
             eplapsed_time_epoch = time_end_epoch - time_start_epoch
             logger.debug(f'[{self.stock_code}][Epoch {epoch_str}/{self.num_epochs}]'
-                         f'Epsilon:{epsilon:.4f} #Sell:{self.agent.num_sell} #Hold:{self.agent.num_hold}'
+                         f'Epsilon:{epsilon:.4f} #Expl.:{self.exploration_cnt}/{self.itr_cnt} '
+                         f'#Buy:{self.agent.num_buy} #Sell:{self.agent.num_sell} #Hold:{self.agent.num_hold} '
                          f'#Stocks:{self.agent.num_stocks} PV:{self.agent.portfolio_value:,.0f} '
                          f'Loss:{self.loss:.6f} ET:{eplapsed_time_epoch:.4f}'
                          )
@@ -442,9 +443,9 @@ class ReinforcementLearner:
             self.policy_network.save_model(self.policy_network_path)
     
     # 학습은 수행하지 않고 불러온 모델을 이용하여 샘플에 대해 수행할 행동과 그 확률을 예측하여 반환        
-    def predict(self, balance=10000000):
+    def predict(self):
         # 에이전트 초기 자본금 설정
-        self.agent.set_balance(balance)
+        # self.agent.set_balance(balance)
         
         # 에이전트 초기화
         self.agent.reset()
