@@ -3,6 +3,7 @@ import abc
 import numpy as np
 
 import torch
+import torch.nn.functional as F 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -35,10 +36,11 @@ class Network:
     # A3C에서 필요한 스레드 락
     lock = threading.Lock()
     
-    def __init__(self, input_dim=0, output_dim=0, lr=0.001,
+    def __init__(self, input_dim=0, output_dim=0, num_steps=1, lr=0.001,
                  shared_network=None, activation='sigmoid', loss='mse'):
         self.input_dim = input_dim
         self.output_dim = output_dim
+        self.num_steps = num_steps
         self.lr = lr
         self.shared_network = shared_network
         self.activation = activation
@@ -47,7 +49,11 @@ class Network:
         # 신경망의 데이터 형태
         # CNN, LSTMNetwork 클래스는 3차원으로 구성하므로 inp를 (num_steps, input_dim)으로 설정하고, DNN은 (input_dim,)으로 설정
         inp = None
-        if hasattr(self, 'num_steps'):
+        # if hasattr(self, 'num_steps'):
+        #     inp = (self.num_steps, input_dim)
+        # else:
+        #     inp = (self.input_dim,)
+        if self.num_steps > 1:
             inp = (self.num_steps, input_dim)
         else:
             inp = (self.input_dim,)
@@ -74,7 +80,7 @@ class Network:
         elif self.activation == 'sigmoid':
             self.model.add_module('activation', torch.nn.Sigmoid())
         elif self.activation == 'tanh':
-            self.model.add_module('avtivation', torch.nn.Tanh())
+            self.model.add_module('activation', torch.nn.Tanh())
         elif self.activation == 'softmax':
             self.model.add_module('activation', torch.nn.Softmax(dim=1))
         self.model.apply(Network.init_weights)
@@ -83,7 +89,7 @@ class Network:
         # optimizer
         self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=self.lr)
         # self.optimizer = torch.optim.NAdam(self.model.parameters(), lr=self.lr)
-        
+            
         # loss function
         self.criterion = None
         if loss == 'mse':
@@ -102,9 +108,14 @@ class Network:
                 pred = self.model(x).detach().cpu().numpy()
                 pred = pred.flatten()
             return pred
+
     
     def train_on_batch(self, x, y):
-        loss = 0
+        if self.num_steps > 1:
+            x = np.array(x).reshape((-1, self.num_steps, self.input_dim))
+        else:
+            x = np.array(x).reshape((-1, self.input_dim))
+        loss = 0.
         with self.lock:
             # 학습 모드 전환
             self.model.train()
@@ -118,6 +129,31 @@ class Network:
             loss += _loss.item()
         return loss
     
+    def train_on_batch_for_ppo(self, x, y, a, eps, K):
+        if self.num_steps > 1:
+            x = np.array(x).reshape((-1, self.num_steps, self.input_dim))
+        else:
+            x = np.array(x).reshape((-1, self.input_dim))
+        loss = 0.
+        with self.lock:
+            self.model.train()
+            _x = torch.from_numpy(x).float().to(device)
+            _y = torch.from_numpy(y).float().to(device)
+            probs = F.softmax(_y, dim=1)
+            for _ in range(K):
+                y_pred = self.model(_x)
+                probs_pred = F.softmax(y_pred, dim=1)
+                rto = torch.exp(torch.log(probs[:, a]) - torch.log(probs_pred[:, a]))
+                rto_adv = rto * _y[:, a]
+                clp_adv = torch.clamp(rto, 1 - eps, 1 + eps) * _y[:, a]
+                _loss = -torch.min(rto_adv, clp_adv).mean()
+                self.optimizer.zero_grad()
+                _loss.backward()
+                self.optimizer.step()
+                loss += _loss.item()
+        return loss
+                 
+    
     @classmethod
     def get_shared_network(cls, net='dnn', num_steps=1, input_dim=0, output_dim=0):
         if net == 'dnn':
@@ -125,8 +161,8 @@ class Network:
         elif net == 'lstm':
             return LSTMNetwork.get_network_head((num_steps, input_dim), output_dim)
         elif net == 'cnn':
-            return CNN.get_shared_head((num_steps, input_dim), output_dim)
-        
+            return CNN.get_network_head((num_steps, input_dim), output_dim)
+       
     @abc.abstractmethod
     def get_network_head(inp, output_dim):
         pass
@@ -144,7 +180,7 @@ class Network:
     def save_model(self, model_path):
         if model_path is not None and self.model is not None:
             torch.save(self.model, model_path)
-    
+
     def load_model(self, model_path):
         if model_path is not None:
             self.model = torch.load(model_path)
@@ -170,21 +206,20 @@ class DNN(Network):
             torch.nn.Linear(32, output_dim),
         )
         
-    def train_on_batch(self, x, y):
-        x = np.array(x).reshape((-1, self.input_dim))
-        return super().train_on_batch(x, y)
+    # def train_on_batch(self, x, y):
+    #     x = np.array(x).reshape((-1, self.input_dim))
+    #     return super().train_on_batch(x, y)
     
     def predict(self, sample):
         sample = np.array(sample).reshape((1, self.input_dim))
         return super().predict(sample)
 
 class LSTMNetwork(Network):
-    def __init__(self, *args, num_steps=1, **kwargs):
-        self.num_steps = num_steps
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
     @staticmethod
-    def get_network_head(inp, outpu_dim):
+    def get_network_head(inp, output_dim):
         return torch.nn.Sequential(
             torch.nn.BatchNorm1d(inp[0]),
             LSTMModule(inp[1], 128, batch_first=True, use_last_only=True),
@@ -196,22 +231,23 @@ class LSTMNetwork(Network):
             torch.nn.Linear(64, 32),
             torch.nn.BatchNorm1d(32),
             torch.nn.Dropout(p=0.1),
-            torch.nn.Linear(32, outpu_dim),
+            torch.nn.Linear(32, output_dim),
         )
-        
-    def train_on_batch(self, x, y):
-        x = np.array(x).reshape((-1, self.num_steps, self.input_dim))
-        return super().train_on_batch(x, y)
+    
+    # def train_on_batch(self, x, y):
+    #     x = np.array(x).reshape((-1, self.num_steps, self.input_dim))
+    #     return super().train_on_batch(x, y)
     
     def predict(self, sample):
         sample = np.array(sample).reshape((-1, self.num_steps, self.input_dim))
         return super().predict(sample)
 
+
 class LSTMModule(torch.nn.LSTM):
     def __init__(self, *args, use_last_only=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.use_last_only = use_last_only
-    
+
     def forward(self, x):
         output, (h_n, _) = super().forward(x)
         if self.use_last_only:
@@ -219,8 +255,7 @@ class LSTMModule(torch.nn.LSTM):
         return output
 
 class CNN(Network):
-    def __init__(self, *args, num_steps=1, **kwargs):
-        self.num_steps = num_steps
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
     @staticmethod
@@ -242,11 +277,11 @@ class CNN(Network):
             torch.nn.BatchNorm1d(32),
             torch.nn.Dropout(p=0.1),
             torch.nn.Linear(32, output_dim),
-        )       
+        )    
         
-    def train_on_batch(self, x, y):
-        x = np.array(x).reshape((-1, self.num_steps, self.input_dim))
-        return super().train_on_batch(x, y)
+    # def train_on_batch(self, x, y):
+    #     x = np.array(x).reshape((-1, self.num_steps, self.input_dim))
+    #     return super().train_on_batch(x, y)
     
     def predict(self, sample):
         sample = np.array(sample).reshape((1, self.num_steps, self.input_dim))

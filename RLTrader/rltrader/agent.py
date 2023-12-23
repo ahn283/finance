@@ -62,7 +62,7 @@ class Agent:
         self.balance = initial_balance      # 현재 현금 잔고 / initial_value : 초기 자본금
         self.num_stocks = 0                 # 보유 주식 수
         
-        # 포트폴리오 가치 : balance + num_stocks * {현재 주시 가격}
+        # 포트폴리오 가치 : balance + num_stocks * {현재 주식 가격}
         self.portfolio_value = 0
         self.num_buy = 0            # 매수 횟수
         self.num_sell = 0           # 매도 횟수
@@ -102,6 +102,7 @@ class Agent:
         # epsilon 확률로 무작위 행동, 그 외에 경우 신경망을 통해 행동
         confidence = 0
         
+        # pred_policy가 있으면 pred_policy로 행동을 결정하고, 없으면 pred_value로 행동을 결정
         pred = pred_policy
         if pred is None:
             pred = pred_value
