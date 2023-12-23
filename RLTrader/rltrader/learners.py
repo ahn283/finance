@@ -195,7 +195,7 @@ class ReinforcementLearner:
         elif self.net == 'cnn':
             self.policy_network = CNN(
                 input_dim=self.num_features,
-                outpupt_dim=self.agent.NUM_ACTIONS,
+                output_dim=self.agent.NUM_ACTIONS,
                 lr=self.lr, num_steps=self.num_steps,
                 shared_network=shared_network,
                 activation=activation, loss=loss
