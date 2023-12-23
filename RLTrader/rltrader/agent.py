@@ -116,9 +116,10 @@ class Agent:
             if (pred == maxpred).all():
                 epsilon = 1
             
-            # if pred_policy is not None:
-            #     if np.max(pred_policy) - np.min(pred_policy) < 0.05:
-            #         epsilon = 1
+            # 매수와 매도 출력값의 차이가 매우 작으면 (0.05) 탐험 수행
+            if pred_policy is not None:
+                if np.max(pred_policy) - np.min(pred_policy) < 0.05:
+                    epsilon = 1
 
         # 탐험 결정
         if np.random.rand() < epsilon:

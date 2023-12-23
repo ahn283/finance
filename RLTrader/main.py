@@ -37,7 +37,7 @@ if __name__ == '__main__':
     # 차트 데이터 및 학습 데이터 끝 날짜
     parser.add_argument('--end_date', default='20201231')
     # learning rate
-    parser.add_argument('--lr', type=float, default=0.001)
+    parser.add_argument('--lr', type=float, default=0.0001)
     # discount factor
     parser.add_argument('--discount_factor', type=float, default=0.7)
     # 초기 자본금
@@ -54,8 +54,8 @@ if __name__ == '__main__':
     value_network_name = f'{args.name}_{args.rl_method}_{args.net}_value.mdl'
     policy_network_name = f'{args.name}_{args.rl_method}_{args.net}_policy.mdl'
     start_epsilon = 1 if args.mode in ['train', 'update'] else 0
-    num_epochs = 10000 if args.mode in ['train', 'update'] else 1
-    num_steps = 10 if args.net in ['lstm', 'cnn'] else 1
+    num_epochs = 1000 if args.mode in ['train', 'update'] else 1
+    num_steps = 5 if args.net in ['lstm', 'cnn'] else 1
     
     # Backend 설정
     os.environ['RLTRADER_BACKEND'] = args.backend
