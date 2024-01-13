@@ -11,21 +11,22 @@ def masked_loss(args):
     return K.mean(loss, axis=-1)
 
 def get_Q_network(config):
-    obs_input = Input(shape=config['obs_shape'], name='Q_input')
-    
+    obs_input = Input(shape=config["obs_shape"],
+                      name='Q_input')
+
     x = Flatten()(obs_input)
-    for i, n_units in enumerate(config['fcnet_hiddens']):
+    for i, n_units in enumerate(config["fcnet_hiddens"]):
         layer_name = 'Q_' + str(i + 1)
         x = Dense(n_units,
-                  activation=config['fcnet_activation'],
+                  activation=config["fcnet_activation"],
                   name=layer_name)(x)
-    q_estimation_output = Dense(config['n_actions'],
-                                activation='linear',
-                                name='Q_output')(x)
+    q_estimate_output = Dense(config["n_actions"],
+                              activation='linear',
+                              name='Q_output')(x)
     
     # Q Model
     Q_model = Model(inputs=obs_input,
-                    outputs=q_estimation_output)
+                    outputs=q_estimate_output)
     Q_model.summary()
     Q_model.compile(optimizer=Adam(), loss='mse')
     return Q_model
@@ -39,7 +40,7 @@ def get_trainable_model(config):
     sampled_bellman_input = Input(shape=(1,),
                                   name='Q_sampled')
     
-    # trainable model
+    # Trainable model
     loss_output = Lambda(masked_loss,
                          output_shape=(1,),
                          name='Q_masked_out')\
@@ -47,11 +48,13 @@ def get_trainable_model(config):
                           q_estimate_output,
                           mask_input])
     trainable_model = Model(inputs=[obs_input,
-                                        mask_input,
-                                        sampled_bellman_input],
-                                outputs=loss_output)
+                                    mask_input,
+                                    sampled_bellman_input],
+                            outputs=loss_output)
     trainable_model.summary()
-    trainable_model.compile(optimizer=Adam(lr=config['lr'],
-                                           clipvalue=config['grad_clip']),
-                            loss=[lambda y_true, y_pred: y_pred])
+    trainable_model.compile(optimizer=
+                            Adam(lr=config["lr"],
+                            clipvalue=config["grad_clip"]),
+                            loss=[lambda y_true,
+                                         y_pred: y_pred])
     return Q_model, trainable_model

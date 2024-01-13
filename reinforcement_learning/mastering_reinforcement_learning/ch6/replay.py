@@ -8,7 +8,7 @@ class ReplayBuffer:
         self.replay_buffer_size = config["buffer_size"]
         self.buffer = deque(maxlen=self.replay_buffer_size)
         self.total_env_samples = 0
-        
+
     def add(self, experience_list):
         experience_list = experience_list
         for e in experience_list:
@@ -19,10 +19,8 @@ class ReplayBuffer:
     def sample(self, n):
         if len(self.buffer) > n:
             sample_ix = np.random.randint(
-                len(self.buffer), size=n
-            )
+                len(self.buffer), size=n)
             return [self.buffer[ix] for ix in sample_ix]
-        
-        
+
     def get_total_env_samples(self):
         return self.total_env_samples
