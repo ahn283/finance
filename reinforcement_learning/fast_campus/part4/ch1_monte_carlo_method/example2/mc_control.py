@@ -38,7 +38,7 @@ def mc_control_es(env, policy):
             'states': list(),
             'actions': list(),
             'rewards': list(),
-        }``
+        }
         done = False
         step_count = 0
         s = env.exploring_reset()
