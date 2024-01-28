@@ -97,7 +97,7 @@ if __name__ == "__main__":
     value_table1[2:] = value_vector1[6:10]
     
     action_value_matrix1 = td_action_value_prediction(env, policy1)  # (|S|, |A|)
-    # embed()
+   # embed()
     value_vector_temp1 = np.sum(policy1 * action_value_matrix1, axis=-1)
     
     policy2 = list()
