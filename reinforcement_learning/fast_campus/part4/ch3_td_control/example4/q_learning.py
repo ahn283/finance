@@ -1,11 +1,11 @@
-# sarsa.py
+# q_learning.py
 
 import numpy as np
-from environment import Env 
+from environment import Env
 
-gamma = 0.90
-k_alpha = 1e-3
-k_eps = 5e-4
+gamma = 0.9
+k_alpha = 2e-2
+k_eps = 2e-4
 
 def get_state_index(state_space, state):
     for i_s, s in enumerate(state_space):
@@ -13,7 +13,7 @@ def get_state_index(state_space, state):
             return i_s
     assert False, "Couldn't find the state from the state space"
     
-def sarsa(env):
+def q_learning(env):
     action_value_matrix = np.zeros([len(env.state_space), len(env.action_space)])
     
     def sample_action(eps, action_value):
@@ -27,28 +27,25 @@ def sarsa(env):
     def get_eps(total_step_count):
         return 1 / (1 + k_eps * total_step_count)
     
-    # repeat sarsa loop
+    # repeat q-learning loop
     total_step_count = 0
-    for loop_count in range(100000):
+    for loop_count in range(2000):
         done = False
         step_count = 0
         
         s = env.reset()
         i_s = get_state_index(env.state_space, s)
-        action_value = action_value_matrix[i_s]
-        eps = get_eps(total_step_count)
-        a = sample_action(eps, action_value)
         
         # generate an episode
         while not done:
-            r, s_next, done = env.step(a)
-            i_s_next = get_state_index(env.state_space, s_next)
-            action_value_next = action_value_matrix[i_s_next]
+            action_value = action_value_matrix[i_s]
             eps = get_eps(total_step_count)
-            a_next = sample_action(eps, action_value_next)
+            a = sample_action(eps, action_value)
+            r, s_next, done = env.step(a)
             
+            i_s_next = get_state_index(env.state_space, s_next)
             alpha = 1 / (1 + k_alpha * loop_count)
-            td = r + gamma * action_value_matrix[i_s_next][a_next] - action_value_matrix[i_s][a]
+            td = r + gamma * action_value_matrix[i_s_next].max() - action_value_matrix[i_s][a]
             action_value_matrix[i_s][a] = action_value_matrix[i_s][a] + alpha * td
             
             if done:
@@ -59,12 +56,11 @@ def sarsa(env):
             
             s = s_next
             i_s = i_s_next
-            a = a_next
             
         if (loop_count + 1) % 100 == 0:
             print(
-                f"[{loop_count}] action_value_matrix: \n{action_value_matrix}"
-                + f"eps: {get_eps(total_step_count):.4f}"
+                f"[{loop_count}] action_value_matrix: \n{action_value_matrix} "
+                + f"eps: {get_eps(total_step_count):.4f} "
                 + f"alpha: {alpha:.4f}"
             )
     # generate optimal policy from the action value function
@@ -78,7 +74,7 @@ def sarsa(env):
 if __name__ == "__main__":
     np.set_printoptions(formatter={'float': '{:0.3f}'.format})
     env = Env()
-    action_value_matrix, policy = sarsa(env)
+    action_value_matrix, policy = q_learning(env)
     
     argmax_actions = action_value_matrix.argmax(axis=-1)
     value_vector = np.sum(policy * action_value_matrix, axis=-1)
@@ -86,7 +82,5 @@ if __name__ == "__main__":
     value_table = value_vector.reshape(4, 4)
     argmax_actions_table = argmax_actions.reshape(4, 4)
     
-    print(
-        f"value_table: \n{value_table}\n"
-        + f"argmax_actions: \n{argmax_actions.reshape(4, 4)}"
-    )
+    print(f"value_table: \n{value_table}\n"
+          + f"argmax_actions: \n{argmax_actions.reshape(4, 4)}")
