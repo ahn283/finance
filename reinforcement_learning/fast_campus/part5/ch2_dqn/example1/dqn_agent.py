@@ -1,5 +1,4 @@
 # dqn_agent.py
-
 import gym
 import torch
 import random
@@ -22,7 +21,6 @@ class ReplayMemory:
         return len(self.buffer)
     
     def append(self, transition):
-        buffer_size = len(self.buffer)
         self.buffer.append(transition)
         
     def sample(self, size):
@@ -41,10 +39,10 @@ class DQNAgent(nn.Module):
         self.replay_memory = ReplayMemory(self.config)
         
         d_state = env.observation_space.shape[0]
-        n_action = env.action_space.n
+        n_action = env.action_space.n 
         
         self.network = nn.Sequential(
-            nn.Linear(d_state, config.hidden_state),
+            nn.Linear(d_state, config.hidden_size),
             nn.ELU(),
             nn.Linear(config.hidden_size, config.hidden_size),
             nn.ELU(),
@@ -61,12 +59,12 @@ class DQNAgent(nn.Module):
         
         for param in self.target_network.parameters():
             param.requires_grad = False
-            
+    
     def update_target_network(self):
         self.target_network.load_state_dict(self.network.state_dict())
         
     def set_optimizer(self):
-        self.set_optimizer = torch.optim.AdamW(
+        self.optimizer = torch.optim.AdamW(
             params=self.network.parameters(),
             lr=self.config.lr,
             weight_decay=1e-3
@@ -90,29 +88,30 @@ class DQNAgent(nn.Module):
         transitions = self.replay_memory.sample(self.config.batch_size)
         states, actions, rewards, next_states, dones = zip(*transitions)
         
-        states_array = np.stack(states, axis=0)     # (n_batch, d_states)
-        actions_array = np.stack(actions, axis=0, dtype=np.int64)   # (n_batch)
-        rewards_array = np.stack(rewards, axis=0)   # (n_batch)
+        states_array = np.stack(states, axis=0)     # (n_batch, d_state)
+        actions_array = np.stack(actions, axis=0).astype("int64")  # (n_batch)
+        # actions_array = np.stack(actions, axis=0, dtype=np.int64)  # (n_batch)
+        rewards_array = np.stack(rewards, axis=0)     # (n_batch)
         next_states_array = np.stack(next_states, axis=0)   # (n_batch, d_state)
         dones_array = np.stack(dones, axis=0)   # (n_batch)
         
-        states_tensor = torch.from_numpy(states_array).float()  # (n_batch, d_state)
+        states_tensor = torch.from_numpy(states_array).float()      # (n_batch, d_state)
         actions_tensor = torch.from_numpy(actions_array)    # (n_batch)
         rewards_tensor = torch.from_numpy(rewards_array).float()    # (n_batch)
-        next_states_tensor = torch.from_numpy(next_states_array).float ()   # (n_batch, d_state)
-        dones_tensor = torch.from_numpy(dones_array).float()    # (n_batch)
+        next_states_tensor = torch.from_numpy(next_states_array).float()    # (n_batch, d_state)
+        dones_tensor = torch.from_numpy(dones_array).float()        # (n_batch)
         
         Qs = self.forward(states_tensor)    # (n_batch, n_action)
-        next_Qs = self.forward_target_network(next_states_tensor)   # (n_batch, n_action)
+        next_Qs = self.forward_target_network(next_states_tensor)           # (n_batch, n_action)
         
         # index dimension should be the same as the source tensor
         chosen_Q = Qs.gather(dim=-1, index=actions_tensor.reshape(-1, 1)).reshape(-1)   # (n_batch, 1) -> (n_batch)
-        target_Q = rewards_array + (1 - dones_tensor) * config.gamma * next_Qs.max(dim=-1).values
+        target_Q = rewards_tensor + (1 - dones_tensor) * config.gamma * next_Qs.max(dim=-1).values
         
         criterion = nn.SmoothL1Loss()
         loss = criterion(chosen_Q, target_Q)
         
-        # Update by gradient descent
+        # update by gradient descent
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -126,7 +125,7 @@ def get_eps(config, step):
         eps = eps_final
     else:
         m = (eps_final - eps_init) / config.eps_decrease_step
-        eps = eps_init + m * eps
+        eps = eps_init + m * step
     return eps
 
 def eval_agent(config, env, agent):
@@ -139,16 +138,16 @@ def eval_agent(config, env, agent):
         score = 0
         while not done:
             with torch.no_grad():
-                a = agent.get_argmax_action(S)
-                
+                a = agent.get_argmax_action(s)
+            
             s_next, r, done, info = env.step(a)
-            step_count += 1
             
             score += r
             s = s_next
             
         score_sum += score
         step_count_sum += step_count
+        
     score_avg = score_sum / config.num_eval_episode
     step_count_avg = step_count_sum / config.num_eval_episode
     return score_avg, step_count_avg
@@ -160,7 +159,7 @@ if __name__ == "__main__":
     agent.set_optimizer()
     
     dt_now = datetime.datetime.now()
-    logdir = f"logdir/{dt_now.strftime('%y-%m-%d_%H-%M-%S')}"
+    logdir = f"logdir/{dt_now.strftime('%y-%m-%d_%H-%M/-%S')}"
     writer = SummaryWriter(logdir)
     
     # reset replay buffer
@@ -168,15 +167,18 @@ if __name__ == "__main__":
     s = env.reset()
     step_count = 0
     for _ in range(init_replay_buffer_size):
-        a = np.random.choice(env.action_space.n)    # uniform random action
+        a = np.random.choice(env.action_space.n) # uniform random action
         s_next, r, done, info = env.step(a)
         step_count += 1
+        
+        transition = (s, a, r, s_next, done)
+        agent.replay_memory.append(transition)
         
         s = s_next
         if done:
             s = env.reset()
             step_count = 0
-            
+    
     # train agent
     s = env.reset()
     step_count = 0
@@ -187,7 +189,7 @@ if __name__ == "__main__":
             a = np.random.choice(env.action_space.n)    # uniform random action
         else:
             a = agent.get_argmax_action(s)
-            
+        
         s_next, r, done, info = env.step(a)
         step_count += 1
         
@@ -205,13 +207,17 @@ if __name__ == "__main__":
         if step_train % 4 == 0:
             loss = agent.train()
             
-        if step_train % config.eval_peiod == 0:
+        if step_train % config.eval_period == 0:
+            score_avg, step_count_avg = eval_agent(config, env_eval, agent)
             score_avg, step_count_avg = eval_agent(config, env_eval, agent)
             print(
-                f"[{step_train} eps: {eps:.3f} loss: {loss:.3f}] "
+                f"[{step_count} eps: {eps:.3f}] "
                 + f"score_avg: {score_avg:.3f} step_count_avg: {step_count_avg:.3f}"
             )
             writer.add_scalar("Train/loss", loss, step_train)
             writer.add_scalar("Eval/score_avg", score_avg, step_train)
             writer.add_scalar("Eval/step_count_avg", step_count_avg, step_train)
+    
     torch.save(agent.state_dict(), f"{logdir}/state_dict.pth")
+        
+        
