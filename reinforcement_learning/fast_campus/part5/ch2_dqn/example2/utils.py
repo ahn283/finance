@@ -44,7 +44,7 @@ class RepeatActionWrapper(gym.Wrapper):
             s, _, _, _ = self.env.step(0)   # No action
             
         for _ in range(self.n_repeat):
-            self.recent_states.append(a)
+            self.recent_states.append(s)
             
         s = np.concatenate(self.recent_states, axis=0)
         
