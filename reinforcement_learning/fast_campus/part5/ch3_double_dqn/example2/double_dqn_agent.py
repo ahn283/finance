@@ -78,7 +78,7 @@ class DoubleDQNAgent(nn.Module):
     
     def forward_target_network(self, x):
         Qs = self.target_network(x)
-        return Qs 
+        return Qs
     
     def get_argmax_action(self, x):
         s = torch.from_numpy(x).reshape(1, -1).float()
@@ -91,16 +91,16 @@ class DoubleDQNAgent(nn.Module):
         states, actions, rewards, next_states, dones = zip(*transitions)
         
         states_array = np.stack(states, axis=0)     # (n_batch, d_state)
-        actions_array = np.stack(actions, axis=0, dtype=np.int64)       # (n_batch)
+        actions_array = np.stack(actions, axis=0, dtype=np.int64)   # (n_batch)
         rewards_array = np.stack(rewards, axis=0)   # (n_batch)
-        next_states_array = np.stack(next_states, axis=0)   # (n_batch, d_states)
+        next_states_array = np.stack(next_states, axis=0)   # (n_batch, d_state)
         dones_array = np.stack(dones, axis=0)       # (n_batch)
         
-        states_tensor = torch.from_numpy(states_array).float()      # (n_batch, d_state)
+        states_tensor = torch.from_numpy(states_array).float()  # (n_batch, d_state)
         actions_tensor = torch.from_numpy(actions_array)        # (n_batch)
         rewards_tensor = torch.from_numpy(rewards_array).float()    # (n_batch)
         next_states_tensor = torch.from_numpy(next_states_array).float()    # (n_batch, d_state)
-        dones_tensor = torch.from_numpy(dones_array).float()        # (n_batch)
+        dones_tensor = torch.from_numpy(dones_array).float()    # (n_batch)
         
         Qs = self.forward(states_tensor)    # (n_batch, n_action)
         with torch.no_grad():
@@ -110,8 +110,8 @@ class DoubleDQNAgent(nn.Module):
         
         # index dimension should be the same as the source tensor
         chosen_Q = Qs.gather(dim=-1, index=actions_tensor.reshape(-1, 1)).reshape(-1)
-        next_argmax_actions = next_Qs.argmax(dim=-1).reshape(-1, 1)     # reshaping for gather
-        next_target_max_Q = next_target_Qs.gather(dim=-1, index=next_argmax_actions).reshape(-1)    # (n_batch)
+        next_argmax_actions = next_Qs.argmax(dim=-1).reshape(-1, 1)     # reshaping for gatjer
+        next_target_max_Q = next_target_Qs.gather(dim=-1, index=next_argmax_actions).reshpe(-1)     # (n_batch)
         target_Q = rewards_tensor + (1 - dones_tensor) * config.gamma * next_target_max_Q
         
         criterion = nn.SmoothL1Loss()
@@ -145,7 +145,7 @@ def eval_agent(config, env, agent):
         while not done:
             with torch.no_grad():
                 a = agent.get_argmax_action(s)
-                
+            
             s_next, r, done, info = env.step(a)
             step_count += 1
             
@@ -154,11 +154,10 @@ def eval_agent(config, env, agent):
         
         score_sum += score
         step_count_sum += step_count
-    
+        
     score_avg = score_sum / config.num_eval_episode
     step_count_avg = step_count_sum / config.num_eval_episode
     return score_avg, step_count_avg
-
 
 if __name__ == "__main__":
     env = create_env(config)
@@ -186,7 +185,7 @@ if __name__ == "__main__":
         if done:
             s = env.reset()
             step_count = 0
-            
+    
     # train agent
     s = env.reset()
     step_count = 0
@@ -197,7 +196,7 @@ if __name__ == "__main__":
             a = np.random.choice(env.action_space.n)    # uniform random action
         else:
             a = agent.get_argmax_action(s)
-            
+        
         s_next, r, done, info = env.step(a)
         step_count += 1
         
@@ -211,18 +210,18 @@ if __name__ == "__main__":
             
         if step_train % config.target_update_period == 0:
             agent.update_target_network()
-        
+            
         if step_train % 4 == 0:
             loss = agent.train()
-        
-        if step_train % config.eval_period == 0:
+            
+        if step_count % config.eval_period == 0:
             score_avg, step_count_avg = eval_agent(config, env_eval, agent)
             print(
-                f"[{step_train}] eps: {eps:.3f} loss: {loss:.3f} "
-                + f"score_avg: {score_avg:.3f} step_count_avg: {step_count_avg:.3f}"
+                f"[{step_count}] eps: {eps:.3f} loss: {loss:.3f} "
+                +f"score_avg: {score_avg:.3f}"
             )
             writer.add_scalar("Train/loss", loss, step_train)
-            writer.add_scalar("Eval/score_Avg", score_avg, step_train)
+            writer.add_scalar("Eval/score_avg", score_avg, step_train)
             writer.add_scalar("Eval/step_count_avg", step_count_avg, step_train)
-
-    torch.save(agent.state_dict(), f"{logdir}/state_dict.pth")
+            
+        torch.save(agent.state_dict(), f"{logdir}/state_dict.pth")
