@@ -209,7 +209,7 @@ if __name__ == "__main__":
             step_count = 0
             
         if step_train % config.target_update_period == 0:
-            agent.update_target_network()
+            agent.update_target_network()  
             
         if step_train % 4 == 0:
             loss = agent.train()

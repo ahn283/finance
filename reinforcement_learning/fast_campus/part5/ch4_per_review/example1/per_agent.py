@@ -1,5 +1,4 @@
-# double_dqn_agent.py
-
+# per_agent.py
 import gym
 import torch
 import random
@@ -13,32 +12,70 @@ from utils import create_env
 from configuration import config
 from collections import deque
 
-class ReplayMemory:
+class PrioritizedReplayMemory:
     def __init__(self, config):
         self.config = config
         self.buffer = deque([], maxlen=self.config.replay_capacity)
+        self.abs_td_errors = np.ones(self.config.replay_capacity)   # replay_capacity size만큼 우선 1~1 clipping의 최대값인 1로 초기화 (즉, 최소 한번은 sampling)
+        self.alpha = config.alpha
+        self.eps = config.eps_replay
         
     def getsize(self):
         return len(self.buffer)
     
     def append(self, transition):
         buffer_size = len(self.buffer)
-        self.buffer.append(transition)
-        
+        self.buffer.append(transition)  # buffer에 transition 추가
+        if buffer_size == self.config.replay_capacity:  # replay capacity만큼 buffer가 쌓인 경우
+            # 가장 최근 입력된 buffer에 td error max 값 대입
+            abs_td_error_max = self.abs_td_errors[:-2].max()    # 최근에 입력된 값 제외하고 가장 최대 td error 구함
+            self.abs_td_errors[:-1] = self.abs_td_errors[1:]    # 가장 오래된 buffer를 밀어냄
+            self.abs_td_errors[-1] = abs_td_error_max
+    
     def sample(self, size):
         buffer_size = len(self.buffer)
         if buffer_size >= size:
-            samples = random.sample(self.buffer, size)
-        else:
-            assert False, f"Buffer size ({buffer_size}) is smaller than the sample size ({size})"
+            abs_td_errors = self.abs_td_errors[:buffer_size]    # get valid td errors / 최초 td_error 생성시 buffer 사이즈가 꽉 찬것을 가정해 1로 생성했으므로 buffer size에 맞춰 유효한 값만 가져옴
             
-        return samples
-    
-class DoubleDQNAgent(nn.Module):
+            if config.sampling_strategy == 'rank-based':
+                
+                # 1 ~ buffer_size : a = [3, 1, 2] -> a.argsort() = [1, 2, 0] -> 작은 순서대로 index 값을 return
+                # [::-1] 랭킹을 위해 역순 정렬
+                # [index_TD_0, index_TD_1, ..., index_TD_n-1]
+                ranks = abs_td_errors.argsort()[::-1]
+                
+                # [1/1, 1/2, ...., 1/buffer_size]
+                logits = 1 / np.arange(1, buffer_size + 1)  
+                p_sample = p_sample / p_sample.sum()
+                indices = np.random.choice(ranks, p=p_sample, size=config.batch_size)
+            
+            elif config.sampling_strategy == 'proportional':
+                logits = abs_td_errors + self.eps
+                p_sample = np.power(logits, self.alpha)
+                p_sample = p_sample / p_sample.sum()
+                indices = np.random.choice(np.arange(buffer_size), p=p_sample, size=config.batch_size)
+            
+            else:
+                raise NotImplementedError
+            
+            samples = []
+            for i in indices:
+                samples.append(self.buffer[i])
+            prob_samples = p_sample[indices]
+            
+            return samples, prob_samples, indices
+        else:
+            assert f"Buffer size ({buffer_size}) is smaller than the sample size ({size})"
+            
+    def update_td_errors(self, td_errors, indices):
+        abs_td_errors = td_errors.detach().clip(-1, 1).abs().numpy()    # tensor로 input 되므로 detach() 적용후 -1 ~ 1 범위로 clipping
+        self.abs_td_errors[indices] = abs_td_errors
+        
+class DQNAgent(nn.Module):
     def __init__(self, env, config):
         super().__init__()
         self.config = config
-        self.replay_memory = ReplayMemory(self.config)
+        self.replay_memory = PrioritizedReplayMemory(self.config)
         
         d_state = env.observation_space.shape[0]
         n_action = env.action_space.n 
@@ -71,14 +108,14 @@ class DoubleDQNAgent(nn.Module):
             lr=self.config.lr,
             weight_decay=1e-3
         )
-        
+    
     def forward(self, x):
         Qs = self.network(x)
         return Qs
     
     def forward_target_network(self, x):
         Qs = self.target_network(x)
-        return Qs 
+        return Qs
     
     def get_argmax_action(self, x):
         s = torch.from_numpy(x).reshape(1, -1).float()
@@ -86,44 +123,48 @@ class DoubleDQNAgent(nn.Module):
         argmax_action = Qs.argmax(dim=-1).item()
         return argmax_action
     
-    def train(self):
-        transitions = self.replay_memory.sample(self.config.batch_size)
+    def train(self, step_train):
+        transitions, prob_samples, indices = self.replay_memory.sample(self.config.batch_size)
         states, actions, rewards, next_states, dones = zip(*transitions)
         
         states_array = np.stack(states, axis=0)     # (n_batch, d_state)
-        actions_array = np.stack(actions, axis=0, dtype=np.int64)       # (n_batch)
+        actions_array = np.stack(actions, axis=0, dtype=np.int64)   # (n_batch)
         rewards_array = np.stack(rewards, axis=0)   # (n_batch)
-        next_states_array = np.stack(next_states, axis=0)   # (n_batch, d_states)
-        dones_array = np.stack(dones, axis=0)       # (n_batch)
+        next_states_array = np.stack(next_states, axis=0)   # (n_batch, d_state)
+        dones_array = np.stack(dones, axis=0)   # (n_batch)
         
         states_tensor = torch.from_numpy(states_array).float()      # (n_batch, d_state)
-        actions_tensor = torch.from_numpy(actions_array)        # (n_batch)
+        actions_tensor = torch.from_numpy(actions_array)    # (n_batch)
         rewards_tensor = torch.from_numpy(rewards_array).float()    # (n_batch)
         next_states_tensor = torch.from_numpy(next_states_array).float()    # (n_batch, d_state)
         dones_tensor = torch.from_numpy(dones_array).float()        # (n_batch)
         
-        Qs = self.forward(states_tensor)    # (n_batch, n_action)   # action value with main network
-        with torch.no_grad():
-            next_Qs = self.forward(next_states_tensor)  # (n_batch, n_action) # next action value with main network
-            
-        next_target_Qs = self.forward_target_network(next_states_tensor)    # (n_batch, n_action)   # next action value with target network
+        Qs = self.forward(states_tensor)    # (n_batch, n_action)
+        next_Qs = self.forward_target_network(next_states_tensor)   # (n_batch, a_action)
         
-        # index dimension should be the same as the source tensor
+        # index dimenstion should be the same as the source tensor
         chosen_Q = Qs.gather(dim=-1, index=actions_tensor.reshape(-1, 1)).reshape(-1)
-        next_argmax_actions = next_Qs.argmax(dim=-1).reshape(-1, 1)     # reshaping for gather # main network로 forward된 액션 밸류를 통해 argmax를 구함
-        next_target_max_Q = next_target_Qs.gather(dim=-1, index=next_argmax_actions).reshape(-1)    # (n_batch)
-        target_Q = rewards_tensor + (1 - dones_tensor) * config.gamma * next_target_max_Q
+        target_Q = rewards_tensor + (1 - dones_tensor) * config.gamma * next_Qs.max(dim=-1).values
+        td_errors = target_Q - chosen_Q
+        self.replay_memory.update_td_errors(td_errors, indices)
         
-        criterion = nn.SmoothL1Loss()
-        loss = criterion(chosen_Q, target_Q)
+        criterion = nn.SmoothL1Loss(reduction='none')
+        loss_tensor = criterion(chosen_Q, target_Q)     # (n_batch)
+        
+        m = (1 - self.config.beta_init) / self.config.train_env_steps
+        beta = self.config.beta_init + m * step_train
+        w = (1 / self.replay_memory.getsize() / torch.from_numpy(prob_samples)) ** beta
+        w = w / w.max()     # (n_batch)
+        
+        loss = torch.mean(loss_tensor * w)
         
         # update by gradient descent
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
         
-        return loss.item()
-    
+        return loss.item(), beta
+
 def get_eps(config, step):
     eps_init = config.eps_init
     eps_final = config.eps_final
@@ -132,6 +173,7 @@ def get_eps(config, step):
     else:
         m = (eps_final - eps_init) / config.eps_decrease_step
         eps = eps_init + m * step
+    
     return eps
 
 def eval_agent(config, env, agent):
@@ -154,16 +196,15 @@ def eval_agent(config, env, agent):
         
         score_sum += score
         step_count_sum += step_count
-    
+        
     score_avg = score_sum / config.num_eval_episode
     step_count_avg = step_count_sum / config.num_eval_episode
     return score_avg, step_count_avg
 
-
 if __name__ == "__main__":
     env = create_env(config)
     env_eval = create_env(config)
-    agent = DoubleDQNAgent(env, config)
+    agent = DQNAgent(env, config)
     agent.set_optimizer()
     
     dt_now = datetime.datetime.now()
@@ -175,7 +216,7 @@ if __name__ == "__main__":
     s = env.reset()
     step_count = 0
     for _ in range(init_replay_buffer_size):
-        a = np.random.choice(env.action_space.n)    # uniform random action
+        a = np.random.choice(env.action_space.n)   # uniform random action
         s_next, r, done, info = env.step(a)
         step_count += 1
         
@@ -197,7 +238,7 @@ if __name__ == "__main__":
             a = np.random.choice(env.action_space.n)    # uniform random action
         else:
             a = agent.get_argmax_action(s)
-            
+        
         s_next, r, done, info = env.step(a)
         step_count += 1
         
@@ -211,18 +252,21 @@ if __name__ == "__main__":
             
         if step_train % config.target_update_period == 0:
             agent.update_target_network()
-        
+            
         if step_train % 4 == 0:
-            loss = agent.train()
-        
+            loss, beta = agent.train(step_train)
+            
         if step_train % config.eval_period == 0:
             score_avg, step_count_avg = eval_agent(config, env_eval, agent)
             print(
-                f"[{step_train}] eps: {eps:.3f} loss: {loss:.3f} "
+                f"[{step_count} eps: {eps:.3f}] loss: {loss:.3f} "
                 + f"score_avg: {score_avg:.3f} step_count_avg: {step_count_avg:.3f}"
             )
             writer.add_scalar("Train/loss", loss, step_train)
-            writer.add_scalar("Eval/score_Avg", score_avg, step_train)
+            writer.add_scalar("Train/beta", beta, step_train)
+            writer.add_scalar("Eval/score_avg", score_avg, step_train)
             writer.add_scalar("Eval/step_count_avg", step_count_avg, step_train)
-
+    
     torch.save(agent.state_dict(), f"{logdir}/state_dict.pth")
+        
+             
