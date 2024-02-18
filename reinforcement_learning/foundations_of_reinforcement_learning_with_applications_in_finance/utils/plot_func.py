@@ -1,4 +1,4 @@
-import matplotlib.pylot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 
 def plot_list_of_curves(

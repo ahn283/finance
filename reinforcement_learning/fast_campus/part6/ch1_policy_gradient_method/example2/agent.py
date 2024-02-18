@@ -59,7 +59,7 @@ class Agent(nn.Module):
             'state': list(),
             'action': list(),
             'reward': list(),
-            'stsate_next': list(),
+            'state_next': list(),
             'done': list()
         }
         return trajectory
@@ -115,6 +115,7 @@ class Agent(nn.Module):
         state_next_seq_array = np.array([trajectory['state_next'] for trajectory in self.batch])    # (n_batch, n_seq, *dim_state)
         done_seq_array = np.array([trajectory['done'] for trajectory in self.batch])    # (n_batch, n_seq)
         
+        # transpose(0, 1) -> switch n_seq and n_batch columns each other
         state_seq_tensor = torch.from_numpy(state_seq_array).float().transpose(0, 1)    # (n_seq, n_batch, *dim_state)  
         action_seq_tensor = torch.from_numpy(action_seq_array).transpose(0, 1)  # (n_seq, n_batch)
         reward_seq_tensor = torch.from_numpy(reward_seq_array).float().transpose(0, 1)  # (n_seq, n_batch)
@@ -122,9 +123,48 @@ class Agent(nn.Module):
         done_seq_tensor = torch.from_numpy(done_seq_array).float().transpose(0, 1)  # (n_seq, n_batch)
         
         # mask for updating policy, until the transition that its done is True
+        # (F F F F ... T T ... T T) first True is real value and Trues after that are values copied.
         update_mask = done_seq_tensor.roll(1, dims=0)   # 위로 한줄 이동
-        update_mask[0, :] = 0       
-        update_mask = 1 - update_mask 
+        update_mask[0, :] = 0   # turn first row value into False   
+        # update_mask == 1 -> update / update_mask == 0 -> don't update
+        update_mask = 1 - update_mask   
         
+        pi, value = self.forward(state_seq_tensor)  # (n_seq, n_batch, n_action), (n_seq, n_batch, 1)
+        _, value_next = self.forward(state_next_seq_tensor)     # (n_seq, n_batch, 1)
+        value = value.squeeze(-1)       # (n_seq, n_batch)
+        value_next = value_next.squeeze(-1)     # (n_seq, n_batch)
+        
+        # L - [0, 1, ..., L-1] = [L, L-1, L-2, ..., 1]
+        from_n_to_1 = (
+            self.config.seq_length - torch.arange(0, self.config.seq_length).unsqueeze(-1).repeat(1, self.config.batch_size)
+        )       # (n_seq, 1) -> (n_seq, n_batch)
+        gamma_power_seq = torch.pow(self.config.gamma, from_n_to_1)     # (n_seq, n_batch)
+        n_step_td = (
+            calc_return_seq_tensor(self.config.gamma, reward_seq_tensor) + gamma_power_seq * value[-2:-1, :].detach()
+        )
+        
+        pi_chosen = pi.gather(dim=-1, index=action_seq_tensor.unsqueeze(-1))    # (n_seq, n_batch, 1)
+        pi_chosen = pi_chosen.squeeze(-1)       # (n_seq, n_batch)
+        
+        value_target = (
+            reward_seq_tensor + self.config.gamma * (1 - done_seq_tensor) * value_next.detach()
+        )   # (n_sqe, n_batch)
+        
+        loss_critic = torch.mean(update_mask * (value_target - value) ** 2)
+        loss_actor = -torch.mean(update_mask * n_step_td * torch.log(pi_chosen + 1e-15))
+        loss_exp = -torch.mean(update_mask * torch.sum(-pi * torch.log(pi + 1e-15), dim=-1))     # (n_seq, n_batch, n_action) -> (n_seq, n_batch)
+        loss = self.config.c1 * loss_critic + self.config.c2 * loss_actor + self.config.c3 * loss_exp
+        
+        loss_critic_avg = loss_critic * self.config.seq_length * self.config.batch_size / update_mask.sum()
+        entropy_avg = -loss_exp * self.config.seq_length * self.config.batch_size / update_mask.sum()
+        
+        self.optim.zero_grad()
+        loss.backward()
+        self.optim.step()
+        
+        self.batch.clear()
+        
+        return loss_critic_avg.detach().item(), entropy_avg.detach().item()
+                               
          
     
