@@ -138,7 +138,7 @@ def preprocess(data, ver='v1'):
     windows = [5, 10, 20, 60, 120]
     for window in windows:
         data[f'close_ma{window}'] = data['close'].rolling(window).mean()
-        data[f'volume_ma{window}'] = data['close'].rolling(window).mean()
+        data[f'volume_ma{window}'] = data['volume'].rolling(window).mean()
         data[f'close_ma{window}_ratio'] = (data['close'] - data[f'close_ma{window}']) / data[f'close_ma{window}']
         data[f'volume_ma{window}_ratio'] = (data['volume'] - data[f'volume_ma{window}']) / data[f'volume_ma{window}']
         
